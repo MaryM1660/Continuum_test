@@ -579,7 +579,7 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
                 <MicButtons
                   theme={theme}
                   isMuted={false}
-                  onToggleMute={handleStep3}
+                  onToggleMute={handleToggleMute}
                   onMicSelect={handleMicSelect}
                   onSoundLevel={handleSoundLevel}
                 />
