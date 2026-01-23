@@ -1,9 +1,10 @@
 import React, { useMemo } from "react";
 import { Platform, useWindowDimensions, StyleSheet, View } from "react-native";
 import { gestureHandlerRootHOC } from "react-native-gesture-handler";
-import { useSharedValue, withSpring } from "react-native-reanimated";
-import { Theme } from "../theme/colors";
+import { useSharedValue, withSpring, useAnimatedStyle } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
+import { Theme } from "../theme/colors";
 
 // Skia не поддерживается на веб, используем fallback
 let SkiaComponents: any = null;
@@ -46,22 +47,52 @@ function FeatherCloudComponent({ theme, isSpeaking = false }: FeatherCloudProps)
 
   // Fallback для веб - простое облако
   if (Platform.OS === 'web' || !SkiaComponents || !useGestureHandler) {
+    const scale = useSharedValue(1);
+    const opacity = useSharedValue(0.8);
+    
+    React.useEffect(() => {
+      if (isSpeaking) {
+        scale.value = withSpring(1.2);
+        opacity.value = withSpring(1);
+      } else {
+        scale.value = withSpring(1.1);
+        opacity.value = withSpring(0.9);
+      }
+    }, [isSpeaking]);
+
+    const animatedStyle = useAnimatedStyle(() => {
+      return {
+        transform: [{ scale: scale.value }],
+        opacity: opacity.value,
+      };
+    });
+
+    const primaryColor = theme.primary;
+    const primaryLight = theme.primaryLight || '#4A9FD9';
+    const cloudBase = theme.cloudBase || '#A8D5E2';
+    const cloudGlow = theme.cloudGlow || '#7BC8E8';
+    const accentColor = theme.accent || '#FFB200';
+
+    const gradientColors = isSpeaking
+      ? [primaryLight, primaryColor, cloudGlow, accentColor, primaryLight]
+      : [primaryColor, primaryLight, cloudBase, cloudGlow, primaryColor];
+
+    const ballSize = isSpeaking ? 200 : 180;
+
     return (
       <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
-        <LinearGradient
-          colors={isSpeaking 
-            ? [theme.primaryLight || '#4A9FD9', theme.primary, theme.cloudGlow || '#7BC8E8', theme.accent || '#FFB200']
-            : [theme.primary, theme.primaryLight || '#4A9FD9', theme.cloudBase || '#A8D5E2', theme.cloudGlow || '#7BC8E8']
-          }
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={{
-            width: 300,
-            height: 200,
-            borderRadius: 100,
-            opacity: 0.8,
-          }}
-        />
+        <Animated.View style={[animatedStyle, { position: 'absolute', top: cy0 - ballSize / 2, left: cx0 - ballSize / 2 }]}>
+          <LinearGradient
+            colors={gradientColors}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              width: ballSize,
+              height: ballSize,
+              borderRadius: ballSize / 2,
+            }}
+          />
+        </Animated.View>
       </View>
     );
   }
@@ -122,7 +153,7 @@ function FeatherCloudComponent({ theme, isSpeaking = false }: FeatherCloudProps)
     return pts;
   }, []);
 
-  const { Blur, Circle, ColorMatrix, Group, Mask, Rect, SweepGradient, vec, Canvas } = SkiaComponents;
+  const { Blur, Circle, ColorMatrix, Group, Mask, Rect, SweepGradient, vec } = SkiaComponents;
 
   const metaballLayer = useMemo(() => {
     return (
