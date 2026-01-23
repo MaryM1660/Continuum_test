@@ -20,13 +20,13 @@ class VoiceEmulator {
   ];
 
   startEmulation(
-    onText: (text: string) => void,
+    onText: (text: string, isFinal?: boolean) => void,
     phrases?: EmulatedSpeech[]
   ): void {
     if (this.isEmulating) return;
 
     this.isEmulating = true;
-    this.onTextCallback = onText;
+    this.onTextCallback = onText as any;
     const phrasesToUse = phrases || this.testPhrases;
 
     let phraseIndex = 0;
@@ -47,9 +47,9 @@ class VoiceEmulator {
         setTimeout(() => {
           if (!this.isEmulating) return;
           currentText += (currentText ? ' ' : '') + word;
-          // Эмулируем промежуточный результат
+          // Эмулируем промежуточный результат (isFinal = false)
           if (this.onTextCallback) {
-            this.onTextCallback(currentText);
+            this.onTextCallback(currentText, false);
           }
         }, (phrase.duration / words.length) * index);
       });
@@ -58,7 +58,7 @@ class VoiceEmulator {
       setTimeout(() => {
         if (!this.isEmulating) return;
         if (this.onTextCallback) {
-          this.onTextCallback(phrase.text);
+          this.onTextCallback(phrase.text, true);
         }
         phraseIndex++;
         
