@@ -133,6 +133,16 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
     }
   }, []);
 
+  // Cleanup при размонтировании
+  useEffect(() => {
+    return () => {
+      if (Platform.OS === 'web') {
+        microphoneService.stopRecording();
+        voiceRecognitionService.stopListening();
+      }
+    };
+  }, []);
+
   // Обработка шагов онбординга
   const handleStep1 = async () => {
     if (!isWaitingForUser) return;
