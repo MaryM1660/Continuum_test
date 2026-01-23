@@ -50,6 +50,7 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recognizedText, setRecognizedText] = useState<string>('');
   const [isProcessingLLM, setIsProcessingLLM] = useState(false);
+  const wasMutedBeforeProcessing = React.useRef<boolean>(false);
 
   // Запрос разрешения на микрофон
   const requestMicPermission = async (): Promise<boolean> => {
@@ -316,6 +317,9 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
 
     console.log('Processing user speech:', text);
     
+    // Сохраняем состояние микрофона перед обработкой
+    wasMutedBeforeProcessing.current = isMuted;
+    
     // Останавливаем запись во время обработки
     if (Platform.OS === 'web') {
       microphoneService.stopRecording();
@@ -343,32 +347,34 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
     } finally {
       setIsProcessingLLM(false);
       // После ответа автоматически возобновляем запись (если микрофон был включен)
-      if (Platform.OS === 'web' && hasMicPermission) {
+      if (Platform.OS === 'web' && hasMicPermission && !wasMutedBeforeProcessing.current) {
         // Проверяем, был ли микрофон включен до обработки
-        // Если был включен, возобновляем запись
+        // Если был включен, возобновляем запись после небольшой задержки
         setTimeout(async () => {
-          if (!isMuted) {
-            console.log('Resuming recording after response');
-            // Перезапускаем запись и распознавание
-            const micStarted = await microphoneService.startRecording((level) => {
-              setAudioLevel(level);
-            });
+          console.log('Resuming recording after response');
+          // Перезапускаем запись и распознавание
+          const micStarted = await microphoneService.startRecording((level) => {
+            setAudioLevel(level);
+          });
 
-            if (micStarted && voiceRecognitionService.isAvailable()) {
-              await voiceRecognitionService.startListening(
-                (result) => {
-                  setRecognizedText(result.text);
-                },
-                (error) => {
-                  console.error('Voice recognition error:', error);
-                },
-                (finalText: string) => {
-                  if (finalText.trim()) {
-                    handleUserSpeech(finalText);
-                  }
-                },
-                3000
-              );
+          if (micStarted && voiceRecognitionService.isAvailable()) {
+            const recognitionStarted = await voiceRecognitionService.startListening(
+              (result) => {
+                setRecognizedText(result.text);
+              },
+              (error) => {
+                console.error('Voice recognition error:', error);
+                setIsRecording(false);
+              },
+              (finalText: string) => {
+                if (finalText.trim()) {
+                  handleUserSpeech(finalText);
+                }
+              },
+              3000
+            );
+            
+            if (recognitionStarted) {
               setIsRecording(true);
             }
           }
