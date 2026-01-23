@@ -47,53 +47,50 @@ export const speakText = async (text: string, volume: number = 0.8): Promise<voi
               return;
             }
             
-            // Отменяем предыдущую речь
+            // Отменяем предыдущую речь сразу
             window.speechSynthesis.cancel();
             
-            // Небольшая задержка для стабильности
-            setTimeout(() => {
-              try {
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'en-US';
-                utterance.rate = 0.9;
-                utterance.pitch = 1.0;
-                utterance.volume = volume;
-                
-                let resolved = false;
-                const duration = Math.max(text.length * 0.05 * 1000, 1000); // Минимум 1 секунда
-                
-                utterance.onend = () => {
-                  if (!resolved) {
-                    resolved = true;
-                    resolve();
-                  }
-                };
-                
-                utterance.onerror = (error) => {
-                  console.warn('Speech error (using fallback):', error);
-                  // В случае ошибки все равно резолвим через задержку
-                  if (!resolved) {
-                    resolved = true;
-                    setTimeout(() => resolve(), Math.min(duration, 2000));
-                  }
-                };
-                
-                // Пытаемся запустить речь
-                window.speechSynthesis.speak(utterance);
-                
-                // Fallback таймаут: всегда резолвим через расчетное время
-                setTimeout(() => {
-                  if (!resolved) {
-                    resolved = true;
-                    resolve();
-                  }
-                }, duration);
-              } catch (error) {
-                console.warn('Error creating utterance:', error);
-                const duration = Math.max(text.length * 0.05 * 1000, 1000);
-                setTimeout(() => resolve(), duration);
+            // Создаем utterance сразу, без задержки
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.95; // Немного быстрее для более естественной речи
+            utterance.pitch = 1.0;
+            utterance.volume = volume;
+            
+            let resolved = false;
+            const duration = Math.max(text.length * 0.04 * 1000, 800); // Быстрее расчет времени
+            
+            utterance.onstart = () => {
+              // Речь началась успешно
+              console.log('Speech started');
+            };
+            
+            utterance.onend = () => {
+              if (!resolved) {
+                resolved = true;
+                resolve();
               }
-            }, 100);
+            };
+            
+            utterance.onerror = (error) => {
+              console.warn('Speech error:', error);
+              // В случае ошибки все равно резолвим через задержку
+              if (!resolved) {
+                resolved = true;
+                setTimeout(() => resolve(), Math.min(duration, 2000));
+              }
+            };
+            
+            // Запускаем речь сразу
+            window.speechSynthesis.speak(utterance);
+            
+            // Fallback таймаут: всегда резолвим через расчетное время
+            setTimeout(() => {
+              if (!resolved) {
+                resolved = true;
+                resolve();
+              }
+            }, duration);
           } catch (error) {
             console.warn('Error starting speech:', error);
             // Эмулируем задержку для визуализации

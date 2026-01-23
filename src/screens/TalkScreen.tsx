@@ -14,6 +14,9 @@ import { useTheme } from '../theme/useTheme';
 import { Audio } from 'expo-av';
 import { Platform } from 'react-native';
 import { COACH_PHRASES, speakText } from '../services/mockVoice';
+import { microphoneService } from '../services/microphone';
+import { voiceRecognitionService } from '../services/voiceRecognition';
+import { llmService } from '../services/llmService';
 import { RootStackParamList } from '../../App';
 import { ScreenContainer, Container, Stack, Section } from '../components/layout';
 import { Text } from '../components/typography';
@@ -44,24 +47,47 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
   const [outputDevice, setOutputDevice] = useState<string>('speaker'); // 'speaker', 'headphones'
   const [showVolumeSlider, setShowVolumeSlider] = useState(false);
   const [showDeviceSelector, setShowDeviceSelector] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recognizedText, setRecognizedText] = useState<string>('');
+  const [isProcessingLLM, setIsProcessingLLM] = useState(false);
 
   // Запрос разрешения на микрофон
   const requestMicPermission = async () => {
     try {
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status === 'granted') {
-        setHasMicPermission(true);
-        return true;
+      if (Platform.OS === 'web') {
+        // На веб используем Web API
+        const granted = await microphoneService.requestPermission();
+        if (granted) {
+          setHasMicPermission(true);
+          return true;
+        } else {
+          Alert.alert(
+            'Microphone Permission',
+            'This app requires microphone access to function. Please grant permission in your browser settings.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Retry', onPress: requestMicPermission },
+            ]
+          );
+          return false;
+        }
       } else {
-        Alert.alert(
-          'Microphone Permission',
-          'This app requires microphone access to function. Please grant permission in settings.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Retry', onPress: requestMicPermission },
-          ]
-        );
-        return false;
+        // На мобильных используем expo-av
+        const { status } = await Audio.requestPermissionsAsync();
+        if (status === 'granted') {
+          setHasMicPermission(true);
+          return true;
+        } else {
+          Alert.alert(
+            'Microphone Permission',
+            'This app requires microphone access to function. Please grant permission in settings.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Retry', onPress: requestMicPermission },
+            ]
+          );
+          return false;
+        }
       }
     } catch (error) {
       console.error('Error requesting mic permission:', error);
@@ -129,30 +155,19 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
     
     setIsWaitingForUser(false);
     
-    // На веб-платформе разрешение микрофона может не работать через expo-av
-    // Используем альтернативный подход
-    if (Platform.OS === 'web') {
-      // На веб просто переходим к главному экрану
+    // Запрашиваем реальное разрешение на микрофон
+    const granted = await requestMicPermission();
+    if (granted) {
       setOnboardingStep('complete');
       setIsMuted(false);
-      setHasMicPermission(true); // Эмулируем разрешение для веб
+      // Инициализируем LLM
+      llmService.resetConversation();
       // Переход к основному экрану с озвучиванием
       setTimeout(() => {
         handleMainScreenWelcome();
       }, 500);
     } else {
-      // На мобильных платформах запрашиваем реальное разрешение
-      const granted = await requestMicPermission();
-      if (granted) {
-        setOnboardingStep('complete');
-        setIsMuted(false);
-        // Переход к основному экрану с озвучиванием
-        setTimeout(() => {
-          handleMainScreenWelcome();
-        }, 500);
-      } else {
-        setIsWaitingForUser(true); // Если разрешение не получено, остаемся на шаге 3
-      }
+      setIsWaitingForUser(true); // Если разрешение не получено, остаемся на шаге 3
     }
   };
 
@@ -176,8 +191,64 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
     }
   };
 
-  const handleToggleMute = () => {
-    setIsMuted(!isMuted);
+  const handleToggleMute = async () => {
+    const newMutedState = !isMuted;
+    setIsMuted(newMutedState);
+
+    if (Platform.OS === 'web') {
+      if (newMutedState) {
+        // Останавливаем запись и распознавание
+        microphoneService.stopRecording();
+        voiceRecognitionService.stopListening();
+        setIsRecording(false);
+        setRecognizedText('');
+      } else {
+        // Начинаем запись и распознавание
+        if (hasMicPermission) {
+          const started = await microphoneService.startRecording((level) => {
+            setAudioLevel(level);
+          });
+
+          if (started && voiceRecognitionService.isAvailable()) {
+            voiceRecognitionService.startListening(
+              (result) => {
+                setRecognizedText(result.text);
+                if (result.isFinal && result.text.trim()) {
+                  // Когда распознавание завершено, отправляем в LLM
+                  handleUserSpeech(result.text);
+                }
+              },
+              (error) => {
+                console.error('Voice recognition error:', error);
+              }
+            );
+            setIsRecording(true);
+          }
+        }
+      }
+    }
+  };
+
+  const handleUserSpeech = async (text: string) => {
+    if (isProcessingLLM || !text.trim()) return;
+
+    setIsProcessingLLM(true);
+    setRecognizedText('');
+
+    try {
+      // Отправляем в LLM
+      const response = await llmService.chat(text);
+
+      if (response.text) {
+        // Озвучиваем ответ
+        await speak(response.text);
+      }
+    } catch (error) {
+      console.error('Error processing speech:', error);
+      await speak("I'm sorry, I didn't catch that. Could you repeat?");
+    } finally {
+      setIsProcessingLLM(false);
+    }
   };
 
   // Обработка изменения громкости
