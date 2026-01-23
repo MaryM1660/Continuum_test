@@ -854,15 +854,14 @@ const styles = StyleSheet.create({
     borderRadius: 28, // spacing['2xl'] - spacing.xs
     minWidth: 140,
     alignItems: 'center',
-    shadowColor: '#1F7EB9',
+    // shadowColor применяется динамически через inline style
     shadowOffset: { width: 0, height: 4 }, // spacing.xs
     shadowOpacity: 0.3,
     shadowRadius: 8, // spacing.sm
     elevation: 8,
   },
   buttonText: {
-    color: '#FFFFFF',
-    // Используем типографику из theme
+    // Используем типографику из theme, цвет через theme.primaryContrast
   },
   optionButton: {
     padding: 24, // spacing.xl

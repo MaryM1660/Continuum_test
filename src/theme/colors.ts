@@ -1,6 +1,7 @@
 // Цветовая схема приложения
-// Primary accent: #1F7EB9 (blue)
-// Современная палитра для серьезных тех специалистов
+// Следует официальным гайдлайнам Apple Human Interface Guidelines (HIG)
+// Все цвета соответствуют Apple System Colors для iOS 17/18
+// Primary accent: #007AFF (iOS System Blue)
 // Высокий контраст, eye-friendly, соответствует WCAG AA стандартам
 
 // Импорт типографики
@@ -82,26 +83,26 @@ export const lightTheme = {
   surfaceElevated: '#FFFFFF',      // Приподнятые поверхности
   surfaceHover: '#E5E5EA',         // Hover состояние (Apple стандарт)
   
-  // Text colors - Apple Label Colors
+  // Text colors - Apple Label Colors (точные значения из HIG)
   text: '#000000',                 // Label (основной текст Apple)
-  textSecondary: '#3C3C43',        // Secondary Label (60% opacity)
-  textTertiary: '#3C3C43',         // Tertiary Label (30% opacity) - визуально #B3B3B7
-  textDisabled: '#C7C7CC',         // Disabled Label
+  textSecondary: '#3C3C43',        // Secondary Label (Apple стандарт, 60% opacity от Label)
+  textTertiary: '#3C3C43',         // Tertiary Label (Apple стандарт, 30% opacity от Label) - визуально rgba(60, 60, 67, 0.3)
+  textDisabled: '#C7C7CC',         // Disabled Label (Apple System Gray 4)
   
-  // Border и разделители
-  border: '#D0D7DE',               // Границы
-  divider: '#D8DEE4',              // Разделители
-  borderLight: '#E1E8ED',          // Светлые границы
+  // Border и разделители - Apple System Colors
+  border: '#C6C6C8',               // Separator (Apple стандарт для светлой темы)
+  divider: '#C6C6C8',              // Separator (Apple стандарт)
+  borderLight: '#E5E5EA',          // System Gray 5 (Apple стандарт)
   
-  // Semantic colors - современные и профессиональные
-  error: '#DA3633',                // Ошибки (красный)
+  // Semantic colors - Apple System Colors
+  error: '#FF3B30',                // Red (Apple System Color)
   errorLight: '#FFEBEE',           // Светлый фон для ошибок
-  success: '#238636',              // Успех (зеленый)
+  success: '#34C759',              // Green (Apple System Color)
   successLight: '#E8F5E9',         // Светлый фон для успеха
-  warning: '#9E6A03',              // Предупреждения (оранжевый)
+  warning: '#FF9500',              // Orange (Apple System Color)
   warningLight: '#FFF3E0',         // Светлый фон для предупреждений
-  info: '#0969DA',                 // Информация (синий)
-  infoLight: '#E3F2FD',             // Светлый фон для информации
+  info: '#007AFF',                 // Blue (Apple System Color, same as primary)
+  infoLight: '#E3F2FD',            // Светлый фон для информации
   
 };
 
@@ -119,25 +120,25 @@ export const darkTheme = {
   surfaceElevated: '#2C2C2E',      // Приподнятые поверхности
   surfaceHover: '#3A3A3C',         // Hover состояние (Apple стандарт)
   
-  // Text colors - Apple Label Colors (темная тема)
+  // Text colors - Apple Label Colors (темная тема, точные значения из HIG)
   text: '#FFFFFF',                  // Label (основной текст Apple)
-  textSecondary: '#EBEBF5',         // Secondary Label (60% opacity)
-  textTertiary: '#EBEBF5',         // Tertiary Label (30% opacity) - визуально #999999
-  textDisabled: '#48484A',         // Disabled Label
+  textSecondary: '#EBEBF5',         // Secondary Label (Apple стандарт, 60% opacity от Label)
+  textTertiary: '#EBEBF5',         // Tertiary Label (Apple стандарт, 30% opacity от Label) - визуально rgba(235, 235, 245, 0.3)
+  textDisabled: '#48484A',         // Disabled Label (Apple System Gray 4)
   
-  // Border и разделители
-  border: '#30363D',               // Границы
-  divider: '#21262D',              // Разделители
-  borderLight: '#21262D',          // Светлые границы
+  // Border и разделители - Apple System Colors (темная тема)
+  border: '#38383A',               // Separator (Apple стандарт для темной темы)
+  divider: '#38383A',              // Separator (Apple стандарт)
+  borderLight: '#48484A',          // System Gray 4 (Apple стандарт для темной темы)
   
-  // Semantic colors - адаптированные для темной темы
-  error: '#F85149',                // Ошибки
+  // Semantic colors - Apple System Colors (темная тема)
+  error: '#FF453A',                // Red (Apple System Color, темная тема)
   errorLight: '#490202',           // Темный фон для ошибок
-  success: '#3FB950',              // Успех
+  success: '#32D74B',              // Green (Apple System Color, темная тема)
   successLight: '#033A16',         // Темный фон для успеха
-  warning: '#D29922',              // Предупреждения
+  warning: '#FF9F0A',              // Orange (Apple System Color, темная тема)
   warningLight: '#3D1F00',         // Темный фон для предупреждений
-  info: '#58A6FF',                 // Информация
+  info: '#0A84FF',                 // Blue (Apple System Color, темная тема, same as primary)
   infoLight: '#0C2D6B',            // Темный фон для информации
   
 };

@@ -164,7 +164,7 @@ export const SpeechTestScreen: React.FC = () => {
                   }
                 ]}
               >
-                <Text variant="button" color="primary" style={{ color: '#FFFFFF' }}>
+                <Text variant="button" color="primary">
                   Start Listening
                 </Text>
               </TouchableOpacity>
@@ -180,7 +180,7 @@ export const SpeechTestScreen: React.FC = () => {
                   }
                 ]}
               >
-                <Text variant="button" color="primary" style={{ color: '#FFFFFF' }}>
+                <Text variant="button" color="primary">
                   Stop
                 </Text>
               </TouchableOpacity>

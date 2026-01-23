@@ -91,7 +91,7 @@ export const SessionNotesScreen: React.FC = () => {
                 >
                   <Text
                     variant="bodySmall"
-                    style={{ color: isSelected ? '#FFFFFF' : theme.text }}
+                    style={{ color: isSelected ? theme.primaryContrast : theme.text }}
                   >
                     {hashtag}
                   </Text>

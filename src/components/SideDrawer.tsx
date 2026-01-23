@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)', // Apple стандарт для backdrop (более легкий)
     zIndex: 999,
   },
   drawerContent: {
