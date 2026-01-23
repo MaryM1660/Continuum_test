@@ -12,6 +12,9 @@ class VoiceRecognitionService {
   private isListening: boolean = false;
   private onResultCallback?: (result: VoiceRecognitionResult) => void;
   private onErrorCallback?: (error: Error) => void;
+  private silenceTimeout: NodeJS.Timeout | null = null;
+  private lastFinalText: string = '';
+  private onSilenceCallback?: (finalText: string) => void;
 
   constructor() {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -35,8 +38,13 @@ class VoiceRecognitionService {
 
             if (isFinal) {
               finalTranscript += transcript;
+              this.lastFinalText = finalTranscript.trim();
+              // Сбрасываем таймаут тишины при получении финального результата
+              this.resetSilenceTimeout();
             } else {
               interimTranscript += transcript;
+              // Сбрасываем таймаут при промежуточных результатах
+              this.resetSilenceTimeout();
             }
           }
 
@@ -59,6 +67,19 @@ class VoiceRecognitionService {
 
         this.recognition.onend = () => {
           this.isListening = false;
+          // Если есть финальный текст, вызываем callback
+          if (this.lastFinalText && this.onSilenceCallback) {
+            this.onSilenceCallback(this.lastFinalText);
+            this.lastFinalText = '';
+          }
+          // Автоматически перезапускаем, если нужно
+          if (this.isListening) {
+            try {
+              this.recognition.start();
+            } catch (error) {
+              console.warn('Could not restart recognition:', error);
+            }
+          }
         };
       }
     }
@@ -66,7 +87,9 @@ class VoiceRecognitionService {
 
   async startListening(
     onResult: (result: VoiceRecognitionResult) => void,
-    onError?: (error: Error) => void
+    onError?: (error: Error) => void,
+    onSilence?: (finalText: string) => void,
+    silenceTimeoutMs: number = 3000
   ): Promise<boolean> {
     if (!this.recognition) {
       console.warn('Speech Recognition not available');
@@ -79,10 +102,14 @@ class VoiceRecognitionService {
 
     this.onResultCallback = onResult;
     this.onErrorCallback = onError;
+    this.onSilenceCallback = onSilence;
+    this.lastFinalText = '';
 
     try {
       this.recognition.start();
       this.isListening = true;
+      // Запускаем таймаут для автоматической отправки после паузы
+      this.resetSilenceTimeout(silenceTimeoutMs);
       return true;
     } catch (error) {
       console.error('Error starting recognition:', error);
@@ -90,7 +117,27 @@ class VoiceRecognitionService {
     }
   }
 
+  private resetSilenceTimeout(timeoutMs: number = 3000): void {
+    if (this.silenceTimeout) {
+      clearTimeout(this.silenceTimeout);
+    }
+    
+    if (this.onSilenceCallback && this.lastFinalText) {
+      this.silenceTimeout = setTimeout(() => {
+        if (this.lastFinalText && this.onSilenceCallback) {
+          this.onSilenceCallback(this.lastFinalText);
+          this.lastFinalText = '';
+        }
+      }, timeoutMs);
+    }
+  }
+
   stopListening(): void {
+    if (this.silenceTimeout) {
+      clearTimeout(this.silenceTimeout);
+      this.silenceTimeout = null;
+    }
+    
     if (this.recognition && this.isListening) {
       try {
         this.recognition.stop();
@@ -99,6 +146,9 @@ class VoiceRecognitionService {
         console.error('Error stopping recognition:', error);
       }
     }
+    
+    this.lastFinalText = '';
+    this.onSilenceCallback = undefined;
   }
 
   isAvailable(): boolean {

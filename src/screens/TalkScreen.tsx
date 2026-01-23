@@ -234,44 +234,94 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
 
   const handleToggleMute = async () => {
     const newMutedState = !isMuted;
-    setIsMuted(newMutedState);
-
+    
     if (Platform.OS === 'web') {
       if (newMutedState) {
         // Останавливаем запись и распознавание
+        console.log('Stopping recording and recognition');
         microphoneService.stopRecording();
         voiceRecognitionService.stopListening();
         setIsRecording(false);
         setRecognizedText('');
+        setIsMuted(true);
       } else {
-        // Начинаем запись и распознавание
-        if (hasMicPermission) {
-          const started = await microphoneService.startRecording((level) => {
-            setAudioLevel(level);
-          });
-
-          if (started && voiceRecognitionService.isAvailable()) {
-            voiceRecognitionService.startListening(
-              (result) => {
-                setRecognizedText(result.text);
-                if (result.isFinal && result.text.trim()) {
-                  // Когда распознавание завершено, отправляем в LLM
-                  handleUserSpeech(result.text);
-                }
-              },
-              (error) => {
-                console.error('Voice recognition error:', error);
-              }
+        // Запрашиваем разрешение, если еще не получено
+        if (!hasMicPermission) {
+          console.log('Requesting microphone permission');
+          const granted = await requestMicPermission();
+          if (!granted) {
+            Alert.alert(
+              'Microphone Required',
+              'Please allow microphone access to use voice features.',
+              [{ text: 'OK' }]
             );
+            return;
+          }
+        }
+        
+        console.log('Starting recording and recognition');
+        // Начинаем запись и распознавание
+        const micStarted = await microphoneService.startRecording((level) => {
+          setAudioLevel(level);
+        });
+
+        if (micStarted && voiceRecognitionService.isAvailable()) {
+          const recognitionStarted = await voiceRecognitionService.startListening(
+            (result) => {
+              console.log('Recognition result:', result);
+              setRecognizedText(result.text);
+              // Не отправляем сразу при финальном результате - ждем паузу
+            },
+            (error) => {
+              console.error('Voice recognition error:', error);
+              setIsRecording(false);
+            },
+            // Callback при паузе (тишине 3 секунды)
+            (finalText: string) => {
+              console.log('Silence detected, final text:', finalText);
+              if (finalText.trim()) {
+                handleUserSpeech(finalText);
+              }
+            },
+            3000 // 3 секунды тишины
+          );
+          
+          if (recognitionStarted) {
             setIsRecording(true);
+            setIsMuted(false);
+            console.log('Recording and recognition started');
+          } else {
+            microphoneService.stopRecording();
+            Alert.alert('Error', 'Could not start voice recognition. Please try again.');
+          }
+        } else {
+          if (!micStarted) {
+            Alert.alert('Error', 'Could not access microphone. Please check permissions.');
+          } else if (!voiceRecognitionService.isAvailable()) {
+            Alert.alert('Not Supported', 'Voice recognition is not available in your browser. Please use Chrome or Edge.');
           }
         }
       }
+    } else {
+      // На мобильных просто переключаем состояние
+      setIsMuted(newMutedState);
     }
   };
 
   const handleUserSpeech = async (text: string) => {
-    if (isProcessingLLM || !text.trim()) return;
+    if (isProcessingLLM || !text.trim()) {
+      console.log('Skipping speech processing:', { isProcessingLLM, text: text.trim() });
+      return;
+    }
+
+    console.log('Processing user speech:', text);
+    
+    // Останавливаем запись во время обработки
+    if (Platform.OS === 'web') {
+      microphoneService.stopRecording();
+      voiceRecognitionService.stopListening();
+      setIsRecording(false);
+    }
 
     setIsProcessingLLM(true);
     setRecognizedText('');
@@ -279,16 +329,26 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
     try {
       // Отправляем в LLM
       const response = await llmService.chat(text);
+      console.log('LLM response:', response);
 
       if (response.text) {
-        // Озвучиваем ответ
+        // Озвучиваем ответ с текущей громкостью
         await speak(response.text);
+      } else {
+        await speak("I'm sorry, I didn't get a response. Could you try again?");
       }
     } catch (error) {
       console.error('Error processing speech:', error);
       await speak("I'm sorry, I didn't catch that. Could you repeat?");
     } finally {
       setIsProcessingLLM(false);
+      // После ответа автоматически возобновляем запись
+      if (Platform.OS === 'web' && !isMuted && hasMicPermission) {
+        setTimeout(async () => {
+          console.log('Resuming recording after response');
+          await handleToggleMute(); // Включаем микрофон снова
+        }, 1000);
+      }
     }
   };
 
