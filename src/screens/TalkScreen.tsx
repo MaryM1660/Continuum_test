@@ -52,24 +52,27 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
   const [isProcessingLLM, setIsProcessingLLM] = useState(false);
 
   // Запрос разрешения на микрофон
-  const requestMicPermission = async () => {
+  const requestMicPermission = async (): Promise<boolean> => {
     try {
       if (Platform.OS === 'web') {
         // На веб используем Web API
-        const granted = await microphoneService.requestPermission();
-        if (granted) {
-          setHasMicPermission(true);
+        try {
+          const granted = await microphoneService.requestPermission();
+          if (granted) {
+            setHasMicPermission(true);
+            console.log('Microphone permission granted');
+            return true;
+          } else {
+            console.warn('Microphone permission denied by user');
+            // На веб все равно продолжаем, но без доступа к микрофону
+            setHasMicPermission(false);
+            return true; // Разрешаем продолжение даже без разрешения
+          }
+        } catch (error) {
+          console.error('Error requesting mic permission:', error);
+          // На веб продолжаем даже при ошибке
+          setHasMicPermission(false);
           return true;
-        } else {
-          Alert.alert(
-            'Microphone Permission',
-            'This app requires microphone access to function. Please grant permission in your browser settings.',
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Retry', onPress: requestMicPermission },
-            ]
-          );
-          return false;
         }
       } else {
         // На мобильных используем expo-av
@@ -91,6 +94,11 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
       }
     } catch (error) {
       console.error('Error requesting mic permission:', error);
+      // На веб продолжаем даже при ошибке
+      if (Platform.OS === 'web') {
+        setHasMicPermission(false);
+        return true;
+      }
       return false;
     }
   };
@@ -163,37 +171,60 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
   const handleStep3 = async () => {
     if (isSpeaking || !isWaitingForUser) return;
     
+    console.log('handleStep3 called');
     setIsWaitingForUser(false);
     
-    // Запрашиваем реальное разрешение на микрофон
-    const granted = await requestMicPermission();
-    if (granted) {
+    try {
+      // Запрашиваем реальное разрешение на микрофон
+      const granted = await requestMicPermission();
+      console.log('Microphone permission result:', granted);
+      
+      // Всегда переходим на главный экран (на веб даже без разрешения)
       setOnboardingStep('complete');
       setIsMuted(false);
+      
       // Инициализируем LLM
-      llmService.resetConversation();
+      try {
+        llmService.resetConversation();
+      } catch (error) {
+        console.warn('Error initializing LLM:', error);
+      }
+      
       // Переход к основному экрану с озвучиванием
       setTimeout(() => {
+        console.log('Calling handleMainScreenWelcome');
         handleMainScreenWelcome();
-      }, 500);
-    } else {
-      setIsWaitingForUser(true); // Если разрешение не получено, остаемся на шаге 3
+      }, 300);
+    } catch (error) {
+      console.error('Error in handleStep3:', error);
+      // В случае ошибки все равно переходим на главный экран
+      setOnboardingStep('complete');
+      setIsMuted(false);
+      setIsWaitingForUser(true);
+      setTimeout(() => {
+        handleMainScreenWelcome();
+      }, 300);
     }
   };
 
   const handleMainScreenWelcome = async () => {
+    console.log('handleMainScreenWelcome called');
     try {
-      // Всегда показываем контент, даже если речь не работает
+      // Всегда показываем контент СРАЗУ, даже если речь не работает
       setIsWaitingForUser(true);
+      console.log('UI should be visible now');
       
       // Пытаемся озвучить, но не блокируем UI если это не работает
-      Promise.all([
-        speak(COACH_PHRASES.main.welcome),
-        speak(COACH_PHRASES.main.chooseOption),
-      ]).catch((error) => {
-        console.warn('Speech error in welcome:', error);
-        // UI уже показан, продолжаем работу
-      });
+      // Запускаем асинхронно, не ждем
+      (async () => {
+        try {
+          await speak(COACH_PHRASES.main.welcome);
+          await speak(COACH_PHRASES.main.chooseOption);
+        } catch (error) {
+          console.warn('Speech error in welcome:', error);
+          // UI уже показан, продолжаем работу
+        }
+      })();
     } catch (error) {
       console.error('Error in handleMainScreenWelcome:', error);
       // В любом случае показываем UI
