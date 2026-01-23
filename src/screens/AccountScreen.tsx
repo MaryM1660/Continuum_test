@@ -1,0 +1,129 @@
+import React from 'react';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+} from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { useTheme } from '../theme/useTheme';
+import { RootStackParamList } from '../../App';
+import { ScreenContainer, Container, Stack, Section } from '../components/layout';
+import { Text } from '../components/typography';
+import { Icon } from '../components/icons';
+
+type AccountNavigationProp = StackNavigationProp<RootStackParamList, 'Account'>;
+
+export const AccountScreen: React.FC = () => {
+  const theme = useTheme();
+  const navigation = useNavigation<AccountNavigationProp>();
+
+  const accountItems = [
+    { id: 'profile', label: 'Profile', icon: 'User' as const },
+    { id: 'subscription', label: 'Subscription', icon: 'CreditCard' as const },
+    { id: 'settings', label: 'Settings', icon: 'Cog6Tooth' as const },
+  ];
+
+  const supportItems = [
+    { id: 'help', label: 'Help Center', icon: 'QuestionMarkCircle' as const },
+    { id: 'contact', label: 'Contact Support', icon: 'Envelope' as const },
+    { id: 'feedback', label: 'Send Feedback', icon: 'ChatBubbleLeftRight' as const },
+  ];
+
+  const legalItems = [
+    { id: 'privacy', label: 'Privacy Policy', icon: 'LockClosed' as const },
+    { id: 'terms', label: 'Terms of Service', icon: 'Document' as const },
+  ];
+
+  const renderSection = (title: string, items: typeof accountItems) => (
+    <Section>
+      <Stack gap={theme.spacing.base}>
+        <Text variant="overline" color="secondary">
+          {title}
+        </Text>
+        <Stack gap={0}>
+          {items.map((item) => (
+            <TouchableOpacity
+              key={item.id}
+              style={[
+                styles.item,
+                {
+                  backgroundColor: theme.surface,
+                  borderBottomColor: theme.divider,
+                },
+              ]}
+            >
+              <Stack direction="horizontal" align="center" gap={theme.spacing.lg - theme.spacing.xs}>
+                <Icon name={item.icon} size={26} style={styles.itemIcon} />
+                <Text variant="body" style={styles.itemLabel}>
+                  {item.label}
+                </Text>
+                <Icon name="ArrowRight" size={22} color={theme.textTertiary} style={styles.itemArrow} />
+              </Stack>
+            </TouchableOpacity>
+          ))}
+        </Stack>
+      </Stack>
+    </Section>
+  );
+
+  return (
+    <ScreenContainer>
+      <StatusBar style={theme.background === '#FFFFFF' ? 'dark' : 'light'} />
+      
+      {/* Header */}
+      <Container paddingVertical>
+        <Stack direction="horizontal" align="center" gap={theme.spacing.lg - theme.spacing.xs}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <Icon name="ArrowLeft" size={28} color={theme.primary} />
+          </TouchableOpacity>
+          <Text variant="h1">
+            Account & Support
+          </Text>
+        </Stack>
+      </Container>
+      <View style={[styles.headerBorder, { borderBottomColor: theme.divider }]} />
+
+      {/* Content */}
+      <ScrollView style={styles.content}>
+        <Container padding>
+          <Stack gap={theme.spacing['2xl']}>
+            {renderSection('Account', accountItems)}
+            {renderSection('Support', supportItems)}
+            {renderSection('Legal', legalItems)}
+          </Stack>
+        </Container>
+      </ScrollView>
+    </ScreenContainer>
+  );
+};
+
+const styles = StyleSheet.create({
+  headerBorder: {
+    borderBottomWidth: 1,
+  },
+  backButton: {
+    padding: 6, // spacing.md / 2
+  },
+  // Типографика применяется через Text компонент
+  content: {
+    flex: 1,
+  },
+  item: {
+    padding: 20, // spacing.lg
+    paddingVertical: 22, // spacing.lg + spacing.xs
+    borderBottomWidth: 1,
+  },
+  itemIcon: {
+    // Размер иконки через variant="h2"
+  },
+  itemLabel: {
+    flex: 1,
+  },
+  itemArrow: {
+    opacity: 0.6,
+  },
+});
+

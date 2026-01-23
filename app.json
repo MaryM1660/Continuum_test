@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Continuum AI Agent",
+    "slug": "continuum-ai-agent",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#1F7EB9"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.continuum.aiagent"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1F7EB9"
+      },
+      "package": "com.continuum.aiagent"
+    },
+    "scheme": "continuum"
+  }
+}
+
