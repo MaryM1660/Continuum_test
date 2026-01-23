@@ -17,7 +17,6 @@ import { COACH_PHRASES, speakText } from '../services/mockVoice';
 import { microphoneService } from '../services/microphone';
 import { voiceRecognitionService } from '../services/voiceRecognition';
 import { llmService } from '../services/llmService';
-import { voiceEmulator } from '../services/voiceEmulator';
 import { RootStackParamList } from '../../App';
 import { ScreenContainer, Container, Stack, Section } from '../components/layout';
 import { Text } from '../components/typography';
@@ -245,7 +244,6 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
         console.log('Stopping recording and recognition');
         microphoneService.stopRecording();
         voiceRecognitionService.stopListening();
-        voiceEmulator.stopEmulation();
         setIsRecording(false);
         setRecognizedText('');
         setIsMuted(true);
@@ -266,28 +264,7 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
         
         console.log('Starting recording and recognition');
         
-        // Для тестирования: можно использовать эмулятор (установите true)
-        const USE_EMULATOR = true; // ВРЕМЕННО true для тестирования, в production false
-        
-        if (USE_EMULATOR) {
-          // Используем эмулятор для тестирования без микрофона
-          console.log('Using voice emulator for testing');
-          setIsRecording(true);
-          setIsMuted(false);
-          voiceEmulator.startEmulation((text, isFinal) => {
-            console.log('Emulator text:', text, 'isFinal:', isFinal);
-            setRecognizedText(text);
-            // При финальном результате отправляем в LLM
-            if (isFinal && text.trim()) {
-              setTimeout(() => {
-                handleUserSpeech(text);
-              }, 500);
-            }
-          });
-          return;
-        }
-        
-        // Начинаем запись и распознавание
+        // Начинаем запись и распознавание с реальным микрофоном
         const micStarted = await microphoneService.startRecording((level) => {
           setAudioLevel(level);
         });

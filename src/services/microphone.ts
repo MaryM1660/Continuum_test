@@ -18,12 +18,31 @@ class MicrophoneService {
       return false;
     }
 
+    // Проверяем доступность API
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.error('getUserMedia is not supported');
+      return false;
+    }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop()); // Останавливаем сразу, просто проверяем доступ
+      // Запрашиваем разрешение с правильными constraints
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        }
+      });
+      // Останавливаем сразу, просто проверяем доступ
+      stream.getTracks().forEach(track => track.stop());
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Microphone permission denied:', error);
+      if (error.name === 'NotAllowedError') {
+        console.error('User denied microphone access');
+      } else if (error.name === 'NotFoundError') {
+        console.error('No microphone found');
+      }
       return false;
     }
   }

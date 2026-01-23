@@ -73,15 +73,31 @@ class VoiceRecognitionService {
 
         this.recognition.onend = () => {
           console.log('Recognition ended, was listening:', this.isListening);
-          // Если есть финальный текст и мы все еще должны слушать, вызываем callback
+          this.isListening = false;
+          
+          // Если есть финальный текст, вызываем callback
           if (this.lastFinalText && this.onSilenceCallback) {
             console.log('Calling silence callback with:', this.lastFinalText);
             this.onSilenceCallback(this.lastFinalText);
             this.lastFinalText = '';
           }
           
-          // НЕ перезапускаем автоматически - это будет делать TalkScreen
-          // если микрофон все еще включен
+          // Автоматически перезапускаем, если нужно продолжать слушать
+          // Это важно для continuous mode в Chrome
+          if (this.onResultCallback) {
+            // Небольшая задержка перед перезапуском (Chrome требует это)
+            setTimeout(() => {
+              if (this.onResultCallback) {
+                try {
+                  this.recognition.start();
+                  this.isListening = true;
+                  console.log('Recognition restarted automatically');
+                } catch (error) {
+                  console.warn('Could not restart recognition:', error);
+                }
+              }
+            }, 100);
+          }
         };
       }
     }
