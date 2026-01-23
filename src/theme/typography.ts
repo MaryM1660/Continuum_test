@@ -1,105 +1,107 @@
 // Система типографики на основе iOS Human Interface Guidelines и Material Design
 // Оптимизирована для серьезных тех специалистов - хорошая читаемость, не слишком мелко
 
+// Типографика по официальным гайдлайнам Apple HIG (iOS 17/18)
+// Использует SF Pro шрифты и точные размеры из Apple Human Interface Guidelines
 export const typography = {
-  // Заголовки (Headings)
+  // Заголовки (Headings) - Apple HIG
   h1: {
-    fontSize: 34,      // iOS Large Title, Material Headline 1
-    lineHeight: 40,    // 1.18x для комфортного чтения
+    fontSize: 34,      // Large Title (Apple HIG)
+    lineHeight: 41,    // Apple стандарт
     fontWeight: '700' as const, // Bold
-    letterSpacing: 0.37, // iOS standard
+    letterSpacing: 0.37, // Apple стандарт
   },
   h2: {
-    fontSize: 28,      // iOS Title 1, Material Headline 2
-    lineHeight: 34,    // 1.21x
+    fontSize: 28,      // Title 1 (Apple HIG)
+    lineHeight: 34,    // Apple стандарт
     fontWeight: '700' as const,
-    letterSpacing: 0.36,
+    letterSpacing: 0.36, // Apple стандарт
   },
   h3: {
-    fontSize: 22,      // iOS Title 2, Material Headline 3
-    lineHeight: 28,    // 1.27x
-    fontWeight: '600' as const, // Semibold
-    letterSpacing: 0.35,
+    fontSize: 22,      // Title 2 (Apple HIG)
+    lineHeight: 28,    // Apple стандарт
+    fontWeight: '700' as const, // Bold (Apple стандарт)
+    letterSpacing: 0.35, // Apple стандарт
   },
   h4: {
-    fontSize: 20,      // iOS Title 3, Material Headline 4
-    lineHeight: 26,    // 1.3x
-    fontWeight: '600' as const,
-    letterSpacing: 0.38,
+    fontSize: 20,      // Title 3 (Apple HIG)
+    lineHeight: 25,    // Apple стандарт
+    fontWeight: '600' as const, // Semibold
+    letterSpacing: 0.38, // Apple стандарт
   },
   
-  // Основной текст (Body)
+  // Основной текст (Body) - Apple HIG
   bodyLarge: {
-    fontSize: 17,      // iOS Body, Material Body 1 (стандарт для мобильных)
-    lineHeight: 24,    // 1.41x - оптимально для чтения
+    fontSize: 17,      // Body (Apple HIG)
+    lineHeight: 22,    // Apple стандарт
     fontWeight: '400' as const, // Regular
-    letterSpacing: -0.41, // iOS standard для body
+    letterSpacing: -0.41, // Apple стандарт
   },
   body: {
-    fontSize: 17,      // iOS Body (основной размер текста)
-    lineHeight: 24,
+    fontSize: 17,      // Body (Apple HIG)
+    lineHeight: 22,    // Apple стандарт
     fontWeight: '400' as const,
-    letterSpacing: -0.41,
+    letterSpacing: -0.41, // Apple стандарт
   },
   bodyMedium: {
-    fontSize: 16,      // Для вторичного контента
-    lineHeight: 22,    // 1.38x
+    fontSize: 16,      // Callout (Apple HIG)
+    lineHeight: 21,    // Apple стандарт
     fontWeight: '400' as const,
-    letterSpacing: -0.32,
+    letterSpacing: -0.32, // Apple стандарт
   },
   bodySmall: {
-    fontSize: 15,      // iOS Subhead, Material Body 2
-    lineHeight: 20,    // 1.33x
+    fontSize: 15,      // Subhead (Apple HIG)
+    lineHeight: 20,    // Apple стандарт
     fontWeight: '400' as const,
-    letterSpacing: -0.24,
+    letterSpacing: -0.24, // Apple стандарт
   },
   
-  // Вспомогательный текст (Supporting)
+  // Вспомогательный текст (Supporting) - Apple HIG
   caption: {
-    fontSize: 13,      // iOS Caption, Material Caption
-    lineHeight: 18,    // 1.38x
+    fontSize: 13,      // Footnote (Apple HIG)
+    lineHeight: 18,    // Apple стандарт
     fontWeight: '400' as const,
-    letterSpacing: -0.08,
+    letterSpacing: -0.08, // Apple стандарт
   },
   captionSmall: {
-    fontSize: 12,      // iOS Caption 2
-    lineHeight: 16,    // 1.33x
+    fontSize: 12,      // Caption 1 (Apple HIG)
+    lineHeight: 16,    // Apple стандарт
     fontWeight: '400' as const,
-    letterSpacing: 0,
+    letterSpacing: 0, // Apple стандарт
   },
   
-  // Кнопки и действия (Buttons)
+  // Кнопки и действия (Buttons) - Apple HIG
   button: {
-    fontSize: 17,      // iOS Button, Material Button
-    lineHeight: 22,    // Компактнее для кнопок
-    fontWeight: '600' as const, // Semibold для акцента
-    letterSpacing: -0.41,
+    fontSize: 17,      // Body для кнопок (Apple HIG)
+    lineHeight: 22,    // Apple стандарт
+    fontWeight: '600' as const, // Semibold (Apple стандарт для кнопок)
+    letterSpacing: -0.41, // Apple стандарт
   },
   buttonLarge: {
-    fontSize: 18,      // Для больших CTA кнопок
-    lineHeight: 24,
-    fontWeight: '600' as const,
-    letterSpacing: -0.45,
+    fontSize: 17,      // Body (Apple HIG - кнопки используют Body размер)
+    lineHeight: 22,    // Apple стандарт
+    fontWeight: '600' as const, // Semibold
+    letterSpacing: -0.41, // Apple стандарт
   },
   buttonSmall: {
-    fontSize: 15,      // Для маленьких кнопок
-    lineHeight: 20,
+    fontSize: 15,      // Subhead для маленьких кнопок
+    lineHeight: 20,    // Apple стандарт
     fontWeight: '600' as const,
-    letterSpacing: -0.24,
+    letterSpacing: -0.24, // Apple стандарт
   },
   
-  // Специальные случаи
+  // Специальные случаи - Apple HIG
   label: {
-    fontSize: 13,      // Для лейблов форм
-    lineHeight: 18,
-    fontWeight: '500' as const, // Medium для выделения
-    letterSpacing: -0.08,
+    fontSize: 13,      // Footnote для лейблов
+    lineHeight: 18,    // Apple стандарт
+    fontWeight: '400' as const, // Regular (Apple стандарт)
+    letterSpacing: -0.08, // Apple стандарт
   },
   overline: {
-    fontSize: 11,      // Material Overline
-    lineHeight: 16,
-    fontWeight: '500' as const,
-    letterSpacing: 1.5, // Большой letter-spacing для uppercase
+    fontSize: 11,      // Caption 2 (Apple HIG)
+    lineHeight: 13,    // Apple стандарт
+    fontWeight: '400' as const,
+    letterSpacing: 0.07, // Apple стандарт
     textTransform: 'uppercase' as const,
   },
 } as const;

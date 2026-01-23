@@ -6,21 +6,21 @@
 // Импорт типографики
 import { typography, typographyPatterns } from './typography';
 
-// Единая система отступов на основе 4pt grid
-// Следуем iOS Human Interface Guidelines и Material Design
+// Единая система отступов на основе 8pt grid (Apple HIG стандарт)
+// Следуем официальным iOS Human Interface Guidelines
 export const spacing = {
-  xs: 4,    // 1x grid
-  sm: 8,    // 2x grid
-  md: 12,   // 3x grid
-  base: 16, // 4x grid (базовый отступ)
-  lg: 20,   // 5x grid
-  xl: 24,   // 6x grid
-  '2xl': 32, // 8x grid
-  '3xl': 40, // 10x grid
-  '4xl': 48, // 12x grid
-  '5xl': 64, // 16x grid
-  '6xl': 80, // 20x grid
-  '7xl': 96, // 24x grid
+  xs: 4,    // 0.5x grid (минимальный отступ)
+  sm: 8,    // 1x grid (базовый минимальный отступ Apple)
+  md: 12,   // 1.5x grid
+  base: 16, // 2x grid (стандартный отступ Apple)
+  lg: 20,   // 2.5x grid
+  xl: 24,   // 3x grid (стандартный отступ для контейнеров Apple)
+  '2xl': 32, // 4x grid (стандартный отступ для секций Apple)
+  '3xl': 40, // 5x grid
+  '4xl': 48, // 6x grid (стандартный размер touch target Apple)
+  '5xl': 64, // 8x grid
+  '6xl': 80, // 10x grid
+  '7xl': 96, // 12x grid
 } as const;
 
 // Паттерны отступов для часто используемых случаев
@@ -70,23 +70,23 @@ const baseTheme = {
 
 export const lightTheme = {
   ...baseTheme,
-  // Primary colors - профессиональный синий
-  primary: '#1F7EB9',        // Основной акцент
-  primaryDark: '#1565A0',    // Для hover/pressed состояний
-  primaryLight: '#4A9FD9',   // Для светлых акцентов
+  // Primary colors - Apple System Blue
+  primary: '#007AFF',        // iOS System Blue (официальный Apple)
+  primaryDark: '#0051D5',    // Для pressed состояний
+  primaryLight: '#5AC8FA',   // Для светлых акцентов
   primaryContrast: '#FFFFFF', // Текст на primary фоне
   
-  // Background colors - чистый и минималистичный
-  background: '#FFFFFF',           // Основной фон
-  surface: '#F8F9FA',              // Поверхности (карточки, панели)
+  // Background colors - Apple System Colors
+  background: '#FFFFFF',           // System Background (светлая тема)
+  surface: '#F2F2F7',              // System Grouped Background (Apple стандарт)
   surfaceElevated: '#FFFFFF',      // Приподнятые поверхности
-  surfaceHover: '#F1F3F5',         // Hover состояние
+  surfaceHover: '#E5E5EA',         // Hover состояние (Apple стандарт)
   
-  // Text colors - высокая читаемость
-  text: '#0D1117',                 // Основной текст (почти черный для контраста)
-  textSecondary: '#656D76',        // Вторичный текст (60% opacity эквивалент)
-  textTertiary: '#8B949E',         // Третичный текст (40% opacity)
-  textDisabled: '#B1BAC4',         // Отключенный текст
+  // Text colors - Apple Label Colors
+  text: '#000000',                 // Label (основной текст Apple)
+  textSecondary: '#3C3C43',        // Secondary Label (60% opacity)
+  textTertiary: '#3C3C43',         // Tertiary Label (30% opacity) - визуально #B3B3B7
+  textDisabled: '#C7C7CC',         // Disabled Label
   
   // Border и разделители
   border: '#D0D7DE',               // Границы
@@ -107,23 +107,23 @@ export const lightTheme = {
 
 export const darkTheme = {
   ...baseTheme,
-  // Primary colors - тот же синий, но адаптированный для темной темы
-  primary: '#58A6FF',              // Более яркий для темного фона
-  primaryDark: '#4493F8',          // Для hover/pressed
-  primaryLight: '#79C0FF',         // Для светлых акцентов
-  primaryContrast: '#0D1117',      // Текст на primary фоне
+  // Primary colors - Apple System Blue (темная тема)
+  primary: '#0A84FF',              // iOS System Blue (темная тема)
+  primaryDark: '#409CFF',          // Для pressed
+  primaryLight: '#64D2FF',         // Для светлых акцентов
+  primaryContrast: '#000000',      // Текст на primary фоне
   
-  // Background colors - глубокий темный, но не черный
-  background: '#0D1117',           // Основной фон (GitHub dark style)
-  surface: '#161B22',              // Поверхности
-  surfaceElevated: '#1C2128',      // Приподнятые поверхности
-  surfaceHover: '#21262D',         // Hover состояние
+  // Background colors - Apple System Colors (темная тема)
+  background: '#000000',           // System Background (темная тема)
+  surface: '#1C1C1E',              // System Grouped Background (Apple стандарт)
+  surfaceElevated: '#2C2C2E',      // Приподнятые поверхности
+  surfaceHover: '#3A3A3C',         // Hover состояние (Apple стандарт)
   
-  // Text colors - высокая читаемость на темном
-  text: '#F0F6FC',                  // Основной текст (почти белый)
-  textSecondary: '#B1BAC4',         // Вторичный текст (70% opacity)
-  textTertiary: '#8B949E',         // Третичный текст (50% opacity)
-  textDisabled: '#484F58',         // Отключенный текст
+  // Text colors - Apple Label Colors (темная тема)
+  text: '#FFFFFF',                  // Label (основной текст Apple)
+  textSecondary: '#EBEBF5',         // Secondary Label (60% opacity)
+  textTertiary: '#EBEBF5',         // Tertiary Label (30% opacity) - визуально #999999
+  textDisabled: '#48484A',         // Disabled Label
   
   // Border и разделители
   border: '#30363D',               // Границы

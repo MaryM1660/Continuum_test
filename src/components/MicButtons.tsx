@@ -37,14 +37,14 @@ export const MicButtons: React.FC<MicButtonsProps> = ({
         <View style={{ justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
           {isMuted ? (
             <View style={{ position: 'relative', width: 36, height: 36, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
-              <Icon name="Microphone" size={36} color="#FFFFFF" />
+              <Icon name="Microphone" size={36} color={theme.primary} />
               <View
                 pointerEvents="none"
-                style={{ position: 'absolute', width: 40, height: 2, backgroundColor: '#FFFFFF', transform: [{ rotate: '45deg' }] }}
+                style={{ position: 'absolute', width: 40, height: 2, backgroundColor: theme.primary, transform: [{ rotate: '45deg' }] }}
               />
             </View>
           ) : (
-            <Icon name="Microphone" size={36} color="#FFFFFF" />
+            <Icon name="Microphone" size={36} color={theme.primary} />
           )}
         </View>
       </LiquidGlassButton>

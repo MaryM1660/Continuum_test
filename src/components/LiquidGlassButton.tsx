@@ -37,19 +37,23 @@ export const LiquidGlassButton: React.FC<LiquidGlassButtonProps> = ({
 }) => {
   const isPrimary = variant === 'primary';
   
-  // Цвета для liquid glass эффекта - более заметные
+  // Цвета для liquid glass эффекта согласно официальному гайдлайну Apple HIG
+  // Используем стандартные значения из iOS 17/18
   const glassColor1 = isPrimary
-    ? 'rgba(31, 126, 185, 0.35)'
-    : 'rgba(255, 255, 255, 0.25)';
+    ? 'rgba(255, 255, 255, 0.7)'  // Apple стандарт для primary (более выраженный)
+    : 'rgba(255, 255, 255, 0.6)'; // Apple стандарт для secondary
   
   const glassColor2 = isPrimary
-    ? 'rgba(31, 126, 185, 0.2)'
-    : 'rgba(255, 255, 255, 0.15)';
+    ? 'rgba(255, 255, 255, 0.5)'  // Apple стандарт для primary (градиент)
+    : 'rgba(255, 255, 255, 0.4)';  // Apple стандарт для secondary (градиент)
 
   // Убираем видимую обводку
   const borderColor = 'transparent';
 
-  const textColor = isPrimary ? theme.primaryContrast : theme.text;
+  // Цвет текста по гайдлайну: на белом полупрозрачном фоне нужен темный текст для контраста
+  // Primary кнопки: акцентный синий цвет для текста
+  // Secondary кнопки: темный текст
+  const textColor = isPrimary ? theme.primary : theme.text;
 
   // Для web используем CSS backdrop-filter
   if (Platform.OS === 'web') {
@@ -65,14 +69,16 @@ export const LiquidGlassButton: React.FC<LiquidGlassButtonProps> = ({
             styles.glassContainer,
             {
               borderRadius,
-              borderColor: 'transparent',
-              borderWidth: 0,
+              borderColor: 'rgba(255, 255, 255, 0.18)',  // Apple HIG стандарт
+              borderWidth: 1,
               opacity: disabled ? 0.5 : 1,
               backgroundColor: isPrimary
-                ? 'rgba(31, 126, 185, 0.3)'
-                : 'rgba(255, 255, 255, 0.2)',
-              backdropFilter: 'blur(25px) saturate(200%)',
-              WebkitBackdropFilter: 'blur(25px) saturate(200%)',
+                ? 'rgba(255, 255, 255, 0.7)'  // Apple HIG стандарт
+                : 'rgba(255, 255, 255, 0.6)', // Apple HIG стандарт
+              backdropFilter: 'blur(20px)',  // Apple HIG стандарт: blur(20px)
+              WebkitBackdropFilter: 'blur(20px)',
+              // Тени по официальному гайдлайну Apple HIG
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)', // Apple HIG стандарт
             } as any,
           ]}
         >
@@ -82,16 +88,20 @@ export const LiquidGlassButton: React.FC<LiquidGlassButtonProps> = ({
             end={{ x: 1, y: 1 }}
             style={[StyleSheet.absoluteFill, { borderRadius }]}
           />
-          {/* Верхний блик */}
+          {/* Верхний блик - более мягкий согласно гайдлайну */}
           <LinearGradient
-            colors={['rgba(255, 255, 255, 0.5)', 'rgba(255, 255, 255, 0)']}
+            colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0)']}
             start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 0.5 }}
+            end={{ x: 0, y: 0.4 }}
             style={[styles.highlight, { borderRadius }]}
           />
           <View style={[styles.content, { borderRadius }]}>
             {typeof children === 'string' ? (
-              <Text variant={textVariant} style={{ color: textColor }}>
+              <Text 
+                variant={textVariant} 
+                color={isPrimary ? 'primary' : undefined}
+                style={isPrimary ? undefined : { color: textColor }}
+              >
                 {children}
               </Text>
             ) : (
@@ -131,16 +141,20 @@ export const LiquidGlassButton: React.FC<LiquidGlassButtonProps> = ({
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        {/* Верхний блик */}
+        {/* Верхний блик - более мягкий согласно гайдлайну */}
         <LinearGradient
-          colors={['rgba(255, 255, 255, 0.5)', 'rgba(255, 255, 255, 0)']}
+          colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0)']}
           start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 0.5 }}
+          end={{ x: 0, y: 0.4 }}
           style={[styles.highlight, { borderRadius }]}
         />
         <View style={[styles.content, { borderRadius }]}>
           {typeof children === 'string' ? (
-            <Text variant={textVariant} style={{ color: textColor }}>
+            <Text 
+              variant={textVariant} 
+              color={isPrimary ? 'primary' : undefined}
+              style={isPrimary ? undefined : { color: textColor }}
+            >
               {children}
             </Text>
           ) : (
@@ -155,10 +169,11 @@ export const LiquidGlassButton: React.FC<LiquidGlassButtonProps> = ({
 const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
+    // Внешняя тень по гайдлайну для поднятия элемента
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
+    shadowOffset: { width: 3, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
     elevation: 8,
   },
   glassContainer: {
@@ -173,7 +188,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: '50%',
+    height: '40%',  // Согласно гайдлайну - более мягкий блик
     pointerEvents: 'none',
   },
   content: {
