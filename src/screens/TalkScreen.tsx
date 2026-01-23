@@ -358,20 +358,57 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
   };
 
   const handleVolumeChange = (newVolume: number) => {
+    console.log('Volume changed to:', newVolume);
     setVolume(newVolume);
+    // Громкость будет применена при следующем speak()
+    // Можно также применить к текущей речи, если она идет
+    if (Platform.OS === 'web' && 'speechSynthesis' in window && isSpeaking) {
+      // Останавливаем текущую речь и перезапускаем с новой громкостью
+      // (в реальности это сложно, поэтому просто применяем к следующей)
+    }
   };
 
   // Обработка выбора аудио устройства
   const handleMicSelect = () => {
-    setShowDeviceSelector(true);
+    if (Platform.OS === 'web') {
+      // На веб выбор устройств ограничен браузером
+      // Показываем информативное сообщение
+      Alert.alert(
+        'Device Selection',
+        'On web, audio devices are managed by your browser. To change devices:\n\n' +
+        '1. Click the lock icon in your browser address bar\n' +
+        '2. Go to Site Settings\n' +
+        '3. Change microphone and speaker settings\n\n' +
+        'Or use your system settings to set default devices.',
+        [{ text: 'OK' }]
+      );
+    } else {
+      setShowDeviceSelector(true);
+    }
   };
 
   const handleInputDeviceSelect = (deviceId: string) => {
     setInputDevice(deviceId);
+    // На веб это эмуляция, реальное переключение требует перезапуска записи
+    if (Platform.OS === 'web' && isRecording) {
+      Alert.alert(
+        'Device Changed',
+        'To apply the new microphone, please stop and restart recording.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const handleOutputDeviceSelect = (deviceId: string) => {
     setOutputDevice(deviceId);
+    // На веб это эмуляция, реальное переключение требует системных настроек
+    if (Platform.OS === 'web') {
+      Alert.alert(
+        'Output Device',
+        'On web, speaker output is controlled by your system. Please change the default audio output in your system settings.',
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   const handleOption1 = async () => {
