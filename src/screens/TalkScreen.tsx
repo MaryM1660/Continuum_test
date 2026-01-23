@@ -128,23 +128,52 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
     if (isSpeaking || !isWaitingForUser) return;
     
     setIsWaitingForUser(false);
-    const granted = await requestMicPermission();
-    if (granted) {
+    
+    // На веб-платформе разрешение микрофона может не работать через expo-av
+    // Используем альтернативный подход
+    if (Platform.OS === 'web') {
+      // На веб просто переходим к главному экрану
       setOnboardingStep('complete');
-      setIsMuted(false); // Разблокируем микрофон после получения разрешения
+      setIsMuted(false);
+      setHasMicPermission(true); // Эмулируем разрешение для веб
       // Переход к основному экрану с озвучиванием
       setTimeout(() => {
         handleMainScreenWelcome();
       }, 500);
     } else {
-      setIsWaitingForUser(true); // Если разрешение не получено, остаемся на шаге 3
+      // На мобильных платформах запрашиваем реальное разрешение
+      const granted = await requestMicPermission();
+      if (granted) {
+        setOnboardingStep('complete');
+        setIsMuted(false);
+        // Переход к основному экрану с озвучиванием
+        setTimeout(() => {
+          handleMainScreenWelcome();
+        }, 500);
+      } else {
+        setIsWaitingForUser(true); // Если разрешение не получено, остаемся на шаге 3
+      }
     }
   };
 
   const handleMainScreenWelcome = async () => {
-    await speak(COACH_PHRASES.main.welcome);
-    await speak(COACH_PHRASES.main.chooseOption);
-    setIsWaitingForUser(true);
+    try {
+      // Всегда показываем контент, даже если речь не работает
+      setIsWaitingForUser(true);
+      
+      // Пытаемся озвучить, но не блокируем UI если это не работает
+      Promise.all([
+        speak(COACH_PHRASES.main.welcome),
+        speak(COACH_PHRASES.main.chooseOption),
+      ]).catch((error) => {
+        console.warn('Speech error in welcome:', error);
+        // UI уже показан, продолжаем работу
+      });
+    } catch (error) {
+      console.error('Error in handleMainScreenWelcome:', error);
+      // В любом случае показываем UI
+      setIsWaitingForUser(true);
+    }
   };
 
   const handleToggleMute = () => {

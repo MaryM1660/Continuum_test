@@ -35,46 +35,65 @@ export const speakText = async (text: string, volume: number = 0.8): Promise<voi
     try {
       if (Platform.OS === 'web') {
         // Используем Web Speech API для веб-версии
-        if ('speechSynthesis' in window) {
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
           try {
+            // Проверяем, что мы на HTTPS или localhost (требование браузера)
+            const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            
+            if (!isSecure) {
+              console.warn('Web Speech API requires HTTPS. Using fallback timing.');
+              const duration = Math.max(text.length * 0.05 * 1000, 1000);
+              setTimeout(() => resolve(), duration);
+              return;
+            }
+            
             // Отменяем предыдущую речь
             window.speechSynthesis.cancel();
             
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'en-US';
-            utterance.rate = 0.9;
-            utterance.pitch = 1.0;
-            utterance.volume = volume;
-            
-            let resolved = false;
-            const duration = Math.max(text.length * 0.05 * 1000, 1000); // Минимум 1 секунда
-            
-            utterance.onend = () => {
-              if (!resolved) {
-                resolved = true;
-                resolve();
-              }
-            };
-            
-            utterance.onerror = (error) => {
-              console.warn('Speech error (using fallback):', error);
-              // В случае ошибки все равно резолвим через задержку
-              if (!resolved) {
-                resolved = true;
+            // Небольшая задержка для стабильности
+            setTimeout(() => {
+              try {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.9;
+                utterance.pitch = 1.0;
+                utterance.volume = volume;
+                
+                let resolved = false;
+                const duration = Math.max(text.length * 0.05 * 1000, 1000); // Минимум 1 секунда
+                
+                utterance.onend = () => {
+                  if (!resolved) {
+                    resolved = true;
+                    resolve();
+                  }
+                };
+                
+                utterance.onerror = (error) => {
+                  console.warn('Speech error (using fallback):', error);
+                  // В случае ошибки все равно резолвим через задержку
+                  if (!resolved) {
+                    resolved = true;
+                    setTimeout(() => resolve(), Math.min(duration, 2000));
+                  }
+                };
+                
+                // Пытаемся запустить речь
+                window.speechSynthesis.speak(utterance);
+                
+                // Fallback таймаут: всегда резолвим через расчетное время
+                setTimeout(() => {
+                  if (!resolved) {
+                    resolved = true;
+                    resolve();
+                  }
+                }, duration);
+              } catch (error) {
+                console.warn('Error creating utterance:', error);
+                const duration = Math.max(text.length * 0.05 * 1000, 1000);
                 setTimeout(() => resolve(), duration);
               }
-            };
-            
-            // Пытаемся запустить речь
-            window.speechSynthesis.speak(utterance);
-            
-            // Fallback таймаут: всегда резолвим через расчетное время
-            setTimeout(() => {
-              if (!resolved) {
-                resolved = true;
-                resolve();
-              }
-            }, duration);
+            }, 100);
           } catch (error) {
             console.warn('Error starting speech:', error);
             // Эмулируем задержку для визуализации
