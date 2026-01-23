@@ -22,3 +22,5 @@ web-build/
 .env
 .env.local
 
+# Vercel
+.vercel
