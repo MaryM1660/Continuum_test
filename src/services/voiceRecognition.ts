@@ -1,4 +1,6 @@
-// Реальное распознавание речи через Web Speech Recognition API
+// МАКСИМАЛЬНО ПРОСТОЕ распознавание речи - как в примерах MDN
+// КЛЮЧЕВОЕ: Speech Recognition САМ запрашивает микрофон при start()
+// НЕ нужно вызывать getUserMedia() отдельно!
 import { Platform } from 'react-native';
 
 export interface VoiceRecognitionResult {
@@ -12,177 +14,288 @@ class VoiceRecognitionService {
   private isListening: boolean = false;
   private onResultCallback?: (result: VoiceRecognitionResult) => void;
   private onErrorCallback?: (error: Error) => void;
-  private silenceTimeout: NodeJS.Timeout | null = null;
-  private lastFinalText: string = '';
-  private onSilenceCallback?: (finalText: string) => void;
+  private SpeechRecognitionClass: any = null;
 
   constructor() {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      // @ts-ignore - Web Speech Recognition API
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        this.recognition = new SpeechRecognition();
-        this.recognition.continuous = true;
-        this.recognition.interimResults = true;
-        this.recognition.lang = 'en-US';
+      // @ts-ignore
+      this.SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (this.SpeechRecognitionClass) {
+        console.log('✅ [SPEECH] SpeechRecognition class available');
+      } else {
+        console.error('❌ [SPEECH] SpeechRecognition class NOT available');
+      }
+    }
+  }
 
-        this.recognition.onresult = (event: any) => {
-          let finalTranscript = '';
-          let interimTranscript = '';
-          let confidence = 0;
+  private createRecognition(): any {
+    if (!this.SpeechRecognitionClass) {
+      console.error('❌ [SPEECH] Cannot create recognition - class not available');
+      return null;
+    }
 
+    console.log('🔧 [SPEECH] Creating new SpeechRecognition instance...');
+    const recognition = new this.SpeechRecognitionClass();
+    
+    // ПРОСТЫЕ настройки - ТОЧНО как в рабочем тестовом экране
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = navigator.language || 'en-US';
+    console.log('🔧 [SPEECH] Recognition configured:', {
+      continuous: recognition.continuous,
+      interimResults: recognition.interimResults,
+      lang: recognition.lang
+    });
+
+    // Логируем все события для отладки
+    recognition.onstart = () => {
+      console.log('✅✅✅ [SPEECH] onstart event fired - Recognition started!');
+      console.log('✅ [SPEECH] this.isListening:', this.isListening);
+      console.log('✅ [SPEECH] this.onResultCallback exists:', !!this.onResultCallback);
+    };
+
+    recognition.onaudiostart = () => {
+      console.log('🎤🎤🎤 [SPEECH] onaudiostart event fired - Audio capture started!');
+      console.log('🎤 [SPEECH] Microphone should be receiving audio now');
+      // Проверяем доступные аудио устройства
+      if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+        navigator.mediaDevices.enumerateDevices().then(devices => {
+          const audioInputs = devices.filter(d => d.kind === 'audioinput');
+          console.log('🎤 [SPEECH] Available audio input devices:', audioInputs.length);
+          audioInputs.forEach((device, index) => {
+            console.log(`   Device ${index}:`, {
+              label: device.label || 'Unknown',
+              deviceId: device.deviceId
+            });
+          });
+        });
+      }
+    };
+
+    recognition.onaudioend = () => {
+      console.log('🔇 [SPEECH] onaudioend event fired - Audio capture ended');
+      console.log('⚠️ [SPEECH] Audio capture ended - this may indicate no sound detected');
+    };
+
+    recognition.onsoundstart = () => {
+      console.log('🔊🔊🔊 [SPEECH] onsoundstart event fired - Sound detected!');
+    };
+
+    recognition.onspeechstart = () => {
+      console.log('🗣️🗣️🗣️ [SPEECH] onspeechstart event fired - Speech detected!');
+    };
+
+    recognition.onspeechend = () => {
+      console.log('🔇 [SPEECH] onspeechend event fired - Speech ended');
+    };
+
+    recognition.onresult = (event: any) => {
+          console.log('🎯 [SPEECH] onresult event fired!');
+          console.log('🎯 [SPEECH] event.resultIndex:', event.resultIndex);
+          console.log('🎯 [SPEECH] event.results.length:', event.results.length);
+          console.log('🎯 [SPEECH] this.onResultCallback exists:', !!this.onResultCallback);
+          
+          let finalText = '';
+          let interimText = '';
+          
           for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
             const isFinal = event.results[i].isFinal;
-            confidence = event.results[i][0].confidence || 0.5;
-
+            console.log(`🎯 [SPEECH] Result ${i}: "${transcript}" (isFinal: ${isFinal})`);
             if (isFinal) {
-              finalTranscript += transcript;
-              // Накапливаем финальный текст
-              if (finalTranscript.trim()) {
-                this.lastFinalText = finalTranscript.trim();
-                console.log('Final transcript received:', this.lastFinalText);
-                // При финальном результате сразу отправляем (или через короткую паузу)
-                this.resetSilenceTimeout(1000); // Короткая пауза после финального результата
-              }
+              finalText += transcript;
             } else {
-              interimTranscript += transcript;
-              // Сбрасываем таймаут при промежуточных результатах (пользователь еще говорит)
-              if (interimTranscript.trim()) {
-                this.resetSilenceTimeout();
-              }
+              interimText += transcript;
             }
           }
 
-          const text = finalTranscript || interimTranscript;
+          const text = finalText || interimText;
+          console.log('🎯 [SPEECH] Combined text:', text);
+          console.log('🎯 [SPEECH] Final text:', finalText);
+          console.log('🎯 [SPEECH] Interim text:', interimText);
+          
           if (text && this.onResultCallback) {
-            this.onResultCallback({
-              text: text.trim(),
-              confidence,
-              isFinal: !!finalTranscript,
-            });
+            console.log('✅ [SPEECH] Calling onResultCallback with:', { text: text.trim(), isFinal: !!finalText });
+            try {
+              this.onResultCallback({
+                text: text.trim(),
+                confidence: event.results[event.results.length - 1][0].confidence || 0.5,
+                isFinal: !!finalText,
+              });
+              console.log('✅ [SPEECH] onResultCallback executed successfully');
+            } catch (error) {
+              console.error('❌ [SPEECH] Error in onResultCallback:', error);
+            }
+          } else {
+            if (!text) {
+              console.warn('⚠️ [SPEECH] No text to process');
+            }
+            if (!this.onResultCallback) {
+              console.error('❌ [SPEECH] onResultCallback is not set!');
+            }
           }
         };
 
-        this.recognition.onerror = (event: any) => {
-          console.error('Speech recognition error:', event.error);
+    recognition.onerror = (event: any) => {
+          console.error('❌ [SPEECH] Error:', event.error, event);
+          // no-speech - это НОРМАЛЬНО, не ошибка (пользователь просто не говорит)
+          if (event.error === 'no-speech') {
+            console.log('ℹ️ [SPEECH] No speech detected (normal - user not speaking)');
+            return; // НЕ вызываем callback для no-speech
+          }
+          // aborted - тоже нормально (может быть вызвано stop())
+          if (event.error === 'aborted') {
+            console.log('ℹ️ [SPEECH] Recognition aborted (normal)');
+            return;
+          }
+          // Другие ошибки - вызываем callback
           if (this.onErrorCallback) {
             this.onErrorCallback(new Error(event.error));
           }
         };
 
-        this.recognition.onend = () => {
-          console.log('Recognition ended, was listening:', this.isListening);
-          this.isListening = false;
-          
-          // Если есть финальный текст, вызываем callback
-          if (this.lastFinalText && this.onSilenceCallback) {
-            console.log('Calling silence callback with:', this.lastFinalText);
-            this.onSilenceCallback(this.lastFinalText);
-            this.lastFinalText = '';
-          }
-          
-          // Автоматически перезапускаем, если нужно продолжать слушать
-          // Это важно для continuous mode в Chrome
-          if (this.onResultCallback) {
-            // Небольшая задержка перед перезапуском (Chrome требует это)
-            setTimeout(() => {
-              if (this.onResultCallback) {
-                try {
-                  this.recognition.start();
-                  this.isListening = true;
-                  console.log('Recognition restarted automatically');
-                } catch (error) {
-                  console.warn('Could not restart recognition:', error);
-                }
+    // ВАЖНО: В continuous mode нужно перезапускать вручную при onend
+    // ИСПОЛЬЗУЕМ ПРОСТУЮ ЛОГИКУ КАК В РАБОЧЕМ ТЕСТОВОМ ЭКРАНЕ
+    recognition.onend = () => {
+      console.log('⏹️ [SPEECH] Recognition ended');
+      console.log('⏹️ [SPEECH] this.isListening:', this.isListening);
+      console.log('⏹️ [SPEECH] this.onResultCallback exists:', !!this.onResultCallback);
+      
+      const shouldContinue = this.isListening && this.onResultCallback;
+      
+      // Если мы все еще должны слушать, перезапускаем
+      // ТОЧНО КАК В РАБОЧЕМ ТЕСТОВОМ ЭКРАНЕ - просто вызываем start() на том же recognition
+      if (shouldContinue) {
+        console.log('🔄 [SPEECH] Auto-restarting recognition (continuous mode)...');
+        
+        // Небольшая задержка перед перезапуском (как в тестовом экране)
+        setTimeout(() => {
+          if (this.onResultCallback && this.recognition) {
+            try {
+              // ПРОСТО перезапускаем тот же recognition (как в тестовом экране)
+              console.log('🔄 [SPEECH] Restarting recognition...');
+              this.recognition.start();
+              this.isListening = true;
+              console.log('✅ [SPEECH] Restarted successfully');
+            } catch (error: any) {
+              console.error('❌ [SPEECH] Failed to restart:', error);
+              if (error.message && error.message.includes('already started')) {
+                // Если "already started", значит уже работает
+                this.isListening = true;
+                console.log('ℹ️ [SPEECH] Already started, continuing...');
+              } else {
+                this.isListening = false;
               }
-            }, 100);
+            }
+          } else {
+            console.log('ℹ️ [SPEECH] No callback or recognition, not restarting');
+            this.isListening = false;
           }
-        };
+        }, 100);
+      } else {
+        console.log('ℹ️ [SPEECH] Not restarting - shouldContinue was false');
+        this.isListening = false;
       }
-    }
+    };
+
+    return recognition;
   }
 
   async startListening(
     onResult: (result: VoiceRecognitionResult) => void,
-    onError?: (error: Error) => void,
-    onSilence?: (finalText: string) => void,
-    silenceTimeoutMs: number = 3000
+    onError?: (error: Error) => void
   ): Promise<boolean> {
-    if (!this.recognition) {
-      console.warn('Speech Recognition not available');
+    console.log('🔍 [SPEECH] startListening called');
+    console.log('🔍 [SPEECH] SpeechRecognitionClass available:', !!this.SpeechRecognitionClass);
+    console.log('🔍 [SPEECH] this.isListening:', this.isListening);
+    
+    if (!this.SpeechRecognitionClass) {
+      console.error('❌ [SPEECH] SpeechRecognition class not available');
       return false;
     }
 
-    if (this.isListening) {
-      return true;
+    // Останавливаем предыдущий recognition, если есть
+    if (this.recognition && this.isListening) {
+      console.log('🛑 [SPEECH] Stopping previous recognition...');
+      try {
+        this.recognition.stop();
+        this.isListening = false;
+        // Ждем немного перед перезапуском
+        await new Promise(resolve => setTimeout(resolve, 200));
+      } catch (e) {
+        console.log('ℹ️ [SPEECH] Error stopping (may not be started):', e);
+      }
+    }
+
+    // ВАЖНО: Создаем НОВЫЙ экземпляр каждый раз - ТОЧНО КАК В РАБОЧЕМ ТЕСТОВОМ ЭКРАНЕ!
+    console.log('🔧 [SPEECH] Creating fresh recognition instance...');
+    this.recognition = this.createRecognition();
+    
+    if (!this.recognition) {
+      console.error('❌ [SPEECH] Failed to create recognition instance');
+      return false;
     }
 
     this.onResultCallback = onResult;
     this.onErrorCallback = onError;
-    this.onSilenceCallback = onSilence;
-    this.lastFinalText = '';
+    
+    console.log('🔍 [SPEECH] Callbacks set:', {
+      hasResultCallback: !!this.onResultCallback,
+      hasErrorCallback: !!this.onErrorCallback
+    });
 
     try {
+      // Speech Recognition САМ запросит микрофон при start()
+      // НЕ вызываем getUserMedia() отдельно - это создает конфликт!
+      console.log('🚀 [SPEECH] Calling recognition.start()...');
       this.recognition.start();
       this.isListening = true;
-      console.log('Speech recognition started');
-      // Запускаем таймаут для автоматической отправки после паузы
-      this.resetSilenceTimeout(silenceTimeoutMs);
+      console.log('✅ [SPEECH] recognition.start() called successfully');
+      console.log('✅ [SPEECH] isListening set to true');
+      console.log('✅ [SPEECH] Waiting for onstart event...');
       return true;
     } catch (error: any) {
-      console.error('Error starting recognition:', error);
-      // Если ошибка "already started", просто возвращаем true
+      console.error('❌ [SPEECH] Start error:', error);
+      console.error('❌ [SPEECH] Error details:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
       if (error.message && error.message.includes('already started')) {
+        console.log('ℹ️ [SPEECH] Already started, setting isListening to true');
         this.isListening = true;
         return true;
       }
+      this.isListening = false;
       return false;
     }
   }
 
-  private resetSilenceTimeout(timeoutMs: number = 3000): void {
-    if (this.silenceTimeout) {
-      clearTimeout(this.silenceTimeout);
-      this.silenceTimeout = null;
-    }
-    
-    // Запускаем таймаут только если есть промежуточный или финальный текст
-    if (this.onSilenceCallback) {
-      this.silenceTimeout = setTimeout(() => {
-        if (this.lastFinalText && this.onSilenceCallback) {
-          console.log('Silence timeout triggered, sending:', this.lastFinalText);
-          this.onSilenceCallback(this.lastFinalText);
-          this.lastFinalText = '';
-        }
-        this.silenceTimeout = null;
-      }, timeoutMs);
-    }
-  }
-
   stopListening(): void {
-    if (this.silenceTimeout) {
-      clearTimeout(this.silenceTimeout);
-      this.silenceTimeout = null;
-    }
+    console.log('🛑 [SPEECH] Stopping');
+    this.isListening = false;
     
-    if (this.recognition && this.isListening) {
+    if (this.recognition) {
       try {
         this.recognition.stop();
-        this.isListening = false;
       } catch (error) {
-        console.error('Error stopping recognition:', error);
+        console.error('❌ [SPEECH] Stop error:', error);
       }
     }
     
-    this.lastFinalText = '';
-    this.onSilenceCallback = undefined;
+    this.onResultCallback = undefined;
+    this.onErrorCallback = undefined;
   }
 
   isAvailable(): boolean {
-    return Platform.OS === 'web' && this.recognition !== null;
+    const available = Platform.OS === 'web' && this.SpeechRecognitionClass !== null;
+    console.log('🔍 [SPEECH] isAvailable() called:', {
+      platform: Platform.OS,
+      hasSpeechRecognitionClass: !!this.SpeechRecognitionClass,
+      result: available
+    });
+    return available;
   }
 }
 
 export const voiceRecognitionService = new VoiceRecognitionService();
-

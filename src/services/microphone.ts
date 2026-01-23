@@ -47,19 +47,26 @@ class MicrophoneService {
     }
   }
 
-  async startRecording(onLevel?: AudioLevelCallback): Promise<boolean> {
+  async startRecording(onLevel?: AudioLevelCallback, sharedStream?: MediaStream | null): Promise<boolean> {
     if (Platform.OS !== 'web') {
       return false;
     }
 
     try {
-      this.mediaStream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        }
-      });
+      // Если передан общий поток, используем его вместо запроса нового
+      if (sharedStream) {
+        console.log('✅ [MIC] Using shared media stream');
+        this.mediaStream = sharedStream;
+      } else {
+        console.log('🎤 [MIC] Requesting new media stream');
+        this.mediaStream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          }
+        });
+      }
 
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const source = this.audioContext.createMediaStreamSource(this.mediaStream);
@@ -77,9 +84,10 @@ class MicrophoneService {
       
       this.startLevelMonitoring();
       
+      console.log('✅ [MIC] Microphone recording started');
       return true;
     } catch (error) {
-      console.error('Error starting microphone:', error);
+      console.error('❌ [MIC] Error starting microphone:', error);
       return false;
     }
   }
@@ -110,14 +118,21 @@ class MicrophoneService {
     updateLevel();
   }
 
-  stopRecording(): void {
+  stopRecording(releaseStream: boolean = true): void {
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
 
-    if (this.mediaStream) {
+    // Освобождаем поток только если releaseStream = true
+    // Если поток общий, его не нужно освобождать здесь
+    if (this.mediaStream && releaseStream) {
       this.mediaStream.getTracks().forEach(track => track.stop());
+      this.mediaStream = null;
+      console.log('🛑 [MIC] Media stream released');
+    } else if (this.mediaStream && !releaseStream) {
+      console.log('ℹ️ [MIC] Media stream kept (shared)');
+      // Не освобождаем поток, но очищаем ссылку
       this.mediaStream = null;
     }
 
@@ -129,6 +144,8 @@ class MicrophoneService {
     this.analyser = null;
     this.dataArray = null;
     this.onLevelCallback = null;
+    
+    console.log('🛑 [MIC] Microphone recording stopped');
   }
 
   isRecording(): boolean {

@@ -53,29 +53,27 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
   const [displayText, setDisplayText] = useState<string>(''); // Текст для отображения на экране
   const [speechText, setSpeechText] = useState<string>(''); // Текст для озвучки
   const wasMutedBeforeProcessing = React.useRef<boolean>(false);
+  const lastInterimText = React.useRef<string>('');
+  const lastInterimTime = React.useRef<number>(0);
+  const silenceTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Запрос разрешения на микрофон
   const requestMicPermission = async (): Promise<boolean> => {
     try {
       if (Platform.OS === 'web') {
-        // На веб используем Web API
-        try {
-          const granted = await microphoneService.requestPermission();
-          if (granted) {
-            setHasMicPermission(true);
-            console.log('Microphone permission granted');
-            return true;
-          } else {
-            console.warn('Microphone permission denied by user');
-            // На веб все равно продолжаем, но без доступа к микрофону
-            setHasMicPermission(false);
-            return true; // Разрешаем продолжение даже без разрешения
-          }
-        } catch (error) {
-          console.error('Error requesting mic permission:', error);
-          // На веб продолжаем даже при ошибке
-          setHasMicPermission(false);
+        // ВАЖНО: На веб НЕ вызываем getUserMedia() отдельно!
+        // Speech Recognition САМ запросит разрешение при start()
+        // Просто проверяем доступность API
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          console.log('✅ [PERMISSION] MediaDevices API available - Speech Recognition will request permission');
+          // Не запрашиваем разрешение здесь - пусть Speech Recognition сделает это
+          // Просто помечаем, что API доступен
+          setHasMicPermission(true); // Условно true, реальное разрешение запросит Speech Recognition
           return true;
+        } else {
+          console.warn('❌ [PERMISSION] MediaDevices API not available');
+          setHasMicPermission(false);
+          return false;
         }
       } else {
         // На мобильных используем expo-av
@@ -253,7 +251,8 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
       // Только если разрешение получено, переходим на главный экран
       setHasMicPermission(true);
       setOnboardingStep('complete');
-      setIsMuted(false);
+      // НЕ включаем микрофон автоматически - пользователь сам включит кнопкой
+      setIsMuted(true);
       
       // Инициализируем LLM
       try {
@@ -282,10 +281,10 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
   const handleMainScreenWelcome = async () => {
     console.log('handleMainScreenWelcome called');
     try {
-      // Устанавливаем текст для отображения СРАЗУ (до озвучки)
-      setDisplayText(`${COACH_PHRASES.main.welcome}\n\n${COACH_PHRASES.main.chooseOption}`);
+      // НЕ устанавливаем displayText - текст не показываем на экране, только озвучиваем
+      // setDisplayText(`${COACH_PHRASES.main.welcome}\n\n${COACH_PHRASES.main.chooseOption}`);
       
-      // Устанавливаем текст для озвучки
+      // Устанавливаем текст только для озвучки
       const welcomeSpeech = `${COACH_PHRASES.main.welcome} ${COACH_PHRASES.main.chooseOption}`;
       setSpeechText(welcomeSpeech);
       
@@ -310,96 +309,198 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
   };
 
   const handleToggleMute = async () => {
-    console.log('handleToggleMute called, current isMuted:', isMuted);
+    console.log('🔘 [BUTTON] handleToggleMute called, current isMuted:', isMuted);
     const newMutedState = !isMuted;
-    console.log('newMutedState:', newMutedState);
+    console.log('🔘 [BUTTON] newMutedState (will be):', newMutedState);
     
     if (Platform.OS === 'web') {
       if (newMutedState) {
+        // ВЫКЛЮЧАЕМ микрофон
         // Останавливаем запись и распознавание
         console.log('Stopping recording and recognition');
-        microphoneService.stopRecording();
+        // НЕ используем microphoneService - только Speech Recognition
         voiceRecognitionService.stopListening();
         setIsRecording(false);
         setRecognizedText('');
+        setAudioLevel(0);
         setIsMuted(true);
       } else {
+        // ВКЛЮЧАЕМ микрофон
+        console.log('🔘 [BUTTON] Enabling microphone...');
+        
         // Запрашиваем разрешение, если еще не получено
         if (!hasMicPermission) {
-          console.log('No microphone permission, redirecting to STEP 3');
+          console.log('⚠️ [BUTTON] No microphone permission, redirecting to STEP 3');
           // Переходим на STEP 3 для запроса разрешения
           setOnboardingStep(3);
           setIsWaitingForUser(true);
           return;
         }
         
-        console.log('Starting recording and recognition');
+        console.log('🚀 [BUTTON] Starting recording and recognition');
+        console.log('🚀 [BUTTON] voiceRecognitionService.isAvailable():', voiceRecognitionService.isAvailable());
         
-        // Начинаем запись и распознавание с реальным микрофоном
-        const micStarted = await microphoneService.startRecording((level) => {
-          setAudioLevel(level);
-        });
-
-        if (micStarted && voiceRecognitionService.isAvailable()) {
+        // Speech Recognition САМ запросит микрофон при start()
+        // НЕ используем microphoneService - это создает конфликт!
+        if (voiceRecognitionService.isAvailable()) {
+          console.log('✅ [BUTTON] Service is available, calling startListening...');
+          console.log('📞 [BUTTON] About to call voiceRecognitionService.startListening...');
           const recognitionStarted = await voiceRecognitionService.startListening(
             (result) => {
-              console.log('Recognition result:', result);
-              setRecognizedText(result.text);
+              console.log('✅ [MAIN] Recognition result received!', result);
+              console.log('✅ [MAIN] Text:', result.text, 'isFinal:', result.isFinal);
               
-              // Выводим распознанный текст в консоль
-              if (result.text && result.text.trim()) {
-                console.log('🎤 [MICROPHONE] Recognized text:', result.text);
-                if (result.isFinal) {
-                  console.log('✅ [MICROPHONE] Final result:', result.text);
-                } else {
-                  console.log('⏳ [MICROPHONE] Interim result:', result.text);
+              // ВАЖНО: Логируем ВСЕ результаты, особенно финальные
+              if (result.isFinal) {
+                console.log('🎉🎉🎉 [MAIN] FINAL RESULT RECEIVED:', result.text);
+                console.log('🎉🎉🎉 [MAIN] FULL SENTENCE:', result.text);
+                console.log('═══════════════════════════════════════════════════════════');
+                console.log('🎤 ВЫ СКАЗАЛИ (ФИНАЛЬНЫЙ РЕЗУЛЬТАТ):', result.text);
+                console.log('═══════════════════════════════════════════════════════════');
+                
+                // Очищаем таймер тишины
+                if (silenceTimeoutRef.current) {
+                  clearTimeout(silenceTimeoutRef.current);
+                  silenceTimeoutRef.current = null;
+                }
+                lastInterimText.current = '';
+                lastInterimTime.current = 0;
+              } else {
+                // ПРОМЕЖУТОЧНЫЙ РЕЗУЛЬТАТ - выводим в консоль, чтобы пользователь видела
+                console.log('⏳ [MAIN] Interim result:', result.text);
+                console.log('───────────────────────────────────────────────────────────');
+                console.log('🎤 ВЫ ГОВОРИТЕ (промежуточный):', result.text);
+                console.log('───────────────────────────────────────────────────────────');
+                
+                // Сохраняем промежуточный результат
+                const currentText = result.text.trim();
+                if (currentText) {
+                  lastInterimText.current = currentText;
+                  const now = Date.now();
+                  lastInterimTime.current = now;
+                  
+                  // Очищаем предыдущий таймер
+                  if (silenceTimeoutRef.current) {
+                    clearTimeout(silenceTimeoutRef.current);
+                    silenceTimeoutRef.current = null;
+                  }
+                  
+                  // Проверяем, можно ли считать это предложением (есть точка, восклицательный или вопросительный знак)
+                  const hasSentenceEnd = /[.!?]\s*$/.test(currentText);
+                  const wordCount = currentText.split(/\s+/).length;
+                  
+                  // Если есть знак конца предложения И достаточно слов (минимум 5), считаем финальным
+                  if (hasSentenceEnd && wordCount >= 5) {
+                    console.log('📝 [MAIN] Sentence end detected, treating interim as final');
+                    console.log('🎉🎉🎉 [MAIN] FINAL SENTENCE (from sentence end):', currentText);
+                    console.log('═══════════════════════════════════════════════════════════');
+                    console.log('🎤 ВЫ СКАЗАЛИ (ФИНАЛЬНЫЙ - по знаку конца):', currentText);
+                    console.log('═══════════════════════════════════════════════════════════');
+                    
+                    // Обрабатываем как финальный результат
+                    setRecognizedText(currentText);
+                    setAudioLevel(0);
+                    
+                    console.log('📤 [MAIN] Sending to LLM (from sentence end):', currentText);
+                    setTimeout(() => {
+                      handleUserSpeech(currentText);
+                    }, 500);
+                    
+                    // Очищаем для следующего предложения
+                    lastInterimText.current = '';
+                    lastInterimTime.current = 0;
+                  } else {
+                    // Если нет конца предложения, но текст длинный (50+ слов), тоже считаем финальным
+                    if (wordCount >= 50) {
+                      console.log('📏 [MAIN] Long text detected (', wordCount, ' words), treating interim as final');
+                      console.log('🎉🎉🎉 [MAIN] FINAL SENTENCE (from length):', currentText);
+                      console.log('═══════════════════════════════════════════════════════════');
+                      console.log('🎤 ВЫ СКАЗАЛИ (ФИНАЛЬНЫЙ - по длине):', currentText);
+                      console.log('═══════════════════════════════════════════════════════════');
+                      
+                      setRecognizedText(currentText);
+                      setAudioLevel(0);
+                      
+                      console.log('📤 [MAIN] Sending to LLM (from length):', currentText);
+                      setTimeout(() => {
+                        handleUserSpeech(currentText);
+                      }, 500);
+                      
+                      lastInterimText.current = '';
+                      lastInterimTime.current = 0;
+                    } else {
+                      // Устанавливаем таймер на случай тишины (но это не сработает при постоянном звуке)
+                      silenceTimeoutRef.current = setTimeout(() => {
+                        const timeSinceLastUpdate = Date.now() - lastInterimTime.current;
+                        const savedText = lastInterimText.current;
+                        
+                        if (savedText && savedText.trim() && timeSinceLastUpdate >= 3000) {
+                          console.log('⏰ [MAIN] Silence detected (', timeSinceLastUpdate, 'ms), treating interim as final');
+                          console.log('🎉🎉🎉 [MAIN] FINAL SENTENCE (from silence):', savedText);
+                          console.log('═══════════════════════════════════════════════════════════');
+                          console.log('🎤 ВЫ СКАЗАЛИ (ФИНАЛЬНЫЙ - по тишине):', savedText);
+                          console.log('═══════════════════════════════════════════════════════════');
+                          
+                          setRecognizedText(savedText);
+                          setAudioLevel(0);
+                          
+                          console.log('📤 [MAIN] Sending to LLM (from silence):', savedText);
+                          setTimeout(() => {
+                            handleUserSpeech(savedText);
+                          }, 500);
+                        }
+                      }, 3000);
+                    }
+                  }
                 }
               }
               
-              // При финальном результате сразу отправляем (через короткую паузу)
+              setRecognizedText(result.text);
+              
+              // Визуализация: промежуточные результаты = звук идет
+              if (result.text && !result.isFinal) {
+                setAudioLevel(0.5);
+              } else if (result.isFinal) {
+                setAudioLevel(0);
+              }
+              
+              // При финальном результате отправляем в LLM
               if (result.isFinal && result.text.trim()) {
-                console.log('Final result received, will send to LLM:', result.text);
-                // Небольшая задержка перед отправкой
+                console.log('📤 [MAIN] Sending to LLM:', result.text);
                 setTimeout(() => {
                   handleUserSpeech(result.text);
                 }, 500);
               }
             },
             (error) => {
-              console.error('Voice recognition error:', error);
-              // При некоторых ошибках (no-speech, aborted) просто продолжаем
-              // Recognition автоматически перезапустится через onend
-              if (error.message && (error.message.includes('no-speech') || error.message.includes('aborted'))) {
-                console.log('Recognition will auto-restart');
-              } else {
+              console.error('❌ [MAIN] Recognition error:', error);
+              // no-speech и aborted - нормальные события, не останавливаем
+              if (error.message && !error.message.includes('no-speech') && !error.message.includes('aborted')) {
+                // Только критические ошибки останавливают запись
+                console.error('❌ [MAIN] Critical error, stopping:', error);
                 setIsRecording(false);
+                setAudioLevel(0);
               }
-            },
-            // Callback при паузе (fallback, если финальный результат не пришел)
-            (finalText: string) => {
-              console.log('Silence callback triggered, final text:', finalText);
-              if (finalText.trim()) {
-                console.log('🎤 [MICROPHONE] Silence detected, final text:', finalText);
-                handleUserSpeech(finalText);
-              }
-            },
-            2000 // 2 секунды тишины (fallback)
+            }
           );
           
+          console.log('📞 [BUTTON] startListening returned:', recognitionStarted);
           if (recognitionStarted) {
             setIsRecording(true);
             setIsMuted(false);
-            console.log('Recording and recognition started');
+            console.log('✅ [MAIN] Recognition started successfully! Microphone will be requested by Speech Recognition');
           } else {
-            microphoneService.stopRecording();
-            Alert.alert('Error', 'Could not start voice recognition. Please try again.');
+            console.error('❌ [MAIN] Recognition failed to start!');
+            Alert.alert(
+              'Error', 
+              'Could not start voice recognition. Please check:\n' +
+              '1. Microphone permissions\n' +
+              '2. Browser support (Chrome/Edge recommended)\n' +
+              '3. Internet connection (required for speech recognition)'
+            );
           }
         } else {
-          if (!micStarted) {
-            Alert.alert('Error', 'Could not access microphone. Please check permissions.');
-          } else if (!voiceRecognitionService.isAvailable()) {
-            Alert.alert('Not Supported', 'Voice recognition is not available in your browser. Please use Chrome or Edge.');
-          }
+          Alert.alert('Not Supported', 'Voice recognition is not available in your browser. Please use Chrome or Edge.');
         }
       }
     } else {
@@ -432,9 +533,10 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
     
     // Останавливаем запись во время обработки
     if (Platform.OS === 'web') {
-      microphoneService.stopRecording();
+      // НЕ используем microphoneService - только Speech Recognition
       voiceRecognitionService.stopListening();
       setIsRecording(false);
+      setAudioLevel(0);
     }
 
     setIsProcessingLLM(true);
@@ -468,45 +570,38 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
         // Если был включен, возобновляем запись после небольшой задержки
         setTimeout(async () => {
           console.log('Resuming recording after response');
-          // Перезапускаем запись и распознавание
-          const micStarted = await microphoneService.startRecording((level) => {
-            setAudioLevel(level);
-          });
-
-          if (micStarted && voiceRecognitionService.isAvailable()) {
+          
+          if (voiceRecognitionService.isAvailable()) {
             const recognitionStarted = await voiceRecognitionService.startListening(
               (result) => {
-                // Обновляем recognizedText для внутреннего использования, но не показываем
                 setRecognizedText(result.text);
                 
-                // Выводим распознанный текст в консоль
-                if (result.text && result.text.trim()) {
-                  console.log('🎤 [MICROPHONE] Recognized text:', result.text);
-                  if (result.isFinal) {
-                    console.log('✅ [MICROPHONE] Final result:', result.text);
-                  } else {
-                    console.log('⏳ [MICROPHONE] Interim result:', result.text);
-                  }
+                if (result.text && !result.isFinal) {
+                  setAudioLevel(0.5);
+                } else if (result.isFinal) {
+                  setAudioLevel(0);
+                }
+                
+                if (result.isFinal && result.text.trim()) {
+                  setTimeout(() => {
+                    handleUserSpeech(result.text);
+                  }, 500);
                 }
               },
               (error) => {
-                console.error('Voice recognition error:', error);
-                setIsRecording(false);
-              },
-              (finalText: string) => {
-                if (finalText.trim()) {
-                  console.log('🎤 [MICROPHONE] Silence detected, final text:', finalText);
-                  handleUserSpeech(finalText);
+                console.error('❌ [SPEECH] Error:', error);
+                if (error.message && !error.message.includes('no-speech') && !error.message.includes('aborted')) {
+                  setIsRecording(false);
+                  setAudioLevel(0);
                 }
-              },
-              3000
+              }
             );
             
             if (recognitionStarted) {
               setIsRecording(true);
             }
           }
-        }, 1500); // Даем время на завершение речи
+        }, 1500);
       }
     }
   };
@@ -761,6 +856,8 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
             <MicButtons
               theme={theme}
               isMuted={isMuted}
+              isRecording={isRecording}
+              audioLevel={audioLevel}
               onToggleMute={handleToggleMute}
               onMicSelect={handleMicSelect}
               onSoundLevel={handleSoundLevel}
@@ -786,11 +883,15 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
       )}
       
       {/* Облако - фиксированное в верхней части */}
-      <View style={[styles.cloudContainer, { backgroundColor: 'transparent' }]}>
+      <View
+        // На web облако не должно перехватывать клики по контенту/кнопкам ниже
+        pointerEvents={Platform.OS === 'web' ? 'none' : 'auto'}
+        style={[styles.cloudContainer, { backgroundColor: 'transparent' }]}
+      >
         <Cloud
           theme={theme}
           isSpeaking={isSpeaking}
-          audioLevel={audioLevel}
+          audioLevel={0}
         />
       </View>
 

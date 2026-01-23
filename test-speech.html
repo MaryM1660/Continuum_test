@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Speech Recognition Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .container {
+            background: #2a2a2a;
+            padding: 30px;
+            border-radius: 10px;
+        }
+        button {
+            background: #1F7EB9;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background: #15608a;
+        }
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            background: #333;
+            border-radius: 5px;
+            min-height: 50px;
+        }
+        .result {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2d5a3d;
+            border-radius: 5px;
+            min-height: 100px;
+            font-size: 20px;
+            line-height: 1.6;
+        }
+        .log {
+            margin: 20px 0;
+            padding: 15px;
+            background: #1a1a1a;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #1F7EB9;
+            padding-left: 10px;
+        }
+        .error {
+            border-left-color: #ff4444;
+            color: #ff8888;
+        }
+        .success {
+            border-left-color: #44ff44;
+            color: #88ff88;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Speech Recognition Test</h1>
+        
+        <div>
+            <button id="startBtn">Start Listening</button>
+            <button id="stopBtn" disabled>Stop Listening</button>
+        </div>
+        
+        <div class="status" id="status">
+            Status: Not started
+        </div>
+        
+        <div class="result" id="result">
+            <strong>Recognized text will appear here:</strong><br>
+            <span id="text">(waiting for speech...)</span>
+        </div>
+        
+        <div class="log" id="log">
+            <strong>Console Log:</strong><br>
+        </div>
+    </div>
+
+    <script>
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (!SpeechRecognition) {
+            document.getElementById('status').innerHTML = '❌ Speech Recognition not available in this browser. Please use Chrome or Edge.';
+            document.getElementById('startBtn').disabled = true;
+        } else {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = navigator.language || 'en-US';
+            
+            const startBtn = document.getElementById('startBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const statusEl = document.getElementById('status');
+            const textEl = document.getElementById('text');
+            const logEl = document.getElementById('log');
+            
+            let isListening = false;
+            
+            function log(message, type = 'info') {
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`;
+                entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+                logEl.appendChild(entry);
+                logEl.scrollTop = logEl.scrollHeight;
+                console.log(message);
+            }
+            
+            recognition.onstart = () => {
+                isListening = true;
+                statusEl.innerHTML = '✅ Status: <strong>Listening...</strong> Speak now!';
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                log('✅ Recognition started', 'success');
+            };
+            
+            recognition.onend = () => {
+                isListening = false;
+                statusEl.innerHTML = '⏹️ Status: <strong>Ended</strong>';
+                startBtn.disabled = false;
+                stopBtn.disabled = true;
+                log('⏹️ Recognition ended');
+                
+                // Автоматически перезапускаем, если должны продолжать
+                if (stopBtn.disabled === false) { // Если кнопка Stop не была нажата
+                    log('🔄 Auto-restarting...', 'success');
+                    setTimeout(() => {
+                        try {
+                            recognition.start();
+                        } catch (e) {
+                            log(`❌ Restart error: ${e.message}`, 'error');
+                        }
+                    }, 100);
+                }
+            };
+            
+            recognition.onerror = (event) => {
+                log(`❌ Error: ${event.error}`, 'error');
+                if (event.error === 'no-speech') {
+                    log('ℹ️ No speech detected (this is normal if you are not speaking)', 'info');
+                } else if (event.error === 'aborted') {
+                    log('ℹ️ Recognition aborted (normal when stopping)', 'info');
+                } else {
+                    statusEl.innerHTML = `❌ Status: <strong>Error: ${event.error}</strong>`;
+                }
+            };
+            
+            recognition.onaudiostart = () => {
+                log('🎤 Audio capture started', 'success');
+            };
+            
+            recognition.onaudioend = () => {
+                log('🔇 Audio capture ended');
+            };
+            
+            recognition.onsoundstart = () => {
+                log('🔊 Sound detected!', 'success');
+            };
+            
+            recognition.onspeechstart = () => {
+                log('🗣️ Speech detected!', 'success');
+            };
+            
+            recognition.onresult = (event) => {
+                let finalText = '';
+                let interimText = '';
+                
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalText += transcript;
+                    } else {
+                        interimText += transcript;
+                    }
+                }
+                
+                const text = finalText || interimText;
+                if (text) {
+                    textEl.textContent = text;
+                    if (finalText) {
+                        log(`✅ FINAL RESULT: "${finalText}"`, 'success');
+                        textEl.style.fontWeight = 'bold';
+                        textEl.style.color = '#44ff44';
+                    } else {
+                        log(`⏳ Interim: "${interimText}"`);
+                        textEl.style.fontWeight = 'normal';
+                        textEl.style.color = '#fff';
+                    }
+                }
+            };
+            
+            startBtn.addEventListener('click', () => {
+                log('🚀 Starting recognition...', 'success');
+                try {
+                    recognition.start();
+                } catch (error) {
+                    log(`❌ Start error: ${error.message}`, 'error');
+                }
+            });
+            
+            stopBtn.addEventListener('click', () => {
+                log('🛑 Stopping recognition...');
+                recognition.stop();
+            });
+            
+            log('✅ Speech Recognition initialized and ready', 'success');
+            log(`🌐 Language: ${recognition.lang}`);
+            log(`🔄 Continuous: ${recognition.continuous}`);
+            log(`📝 Interim results: ${recognition.interimResults}`);
+        }
+    </script>
+</body>
+</html>

@@ -7,8 +7,8 @@ const CLOUD_SIZE = 200;
 
 interface CloudProps {
   theme: Theme;
-  isSpeaking: boolean;
-  audioLevel?: number; // 0-1 для эквалайзера
+  isSpeaking: boolean; // Пульсация только на голос коуча
+  audioLevel?: number; // Не используется (для обратной совместимости)
   onPress?: () => void;
 }
 
@@ -18,7 +18,6 @@ export const Cloud: React.FC<CloudProps> = ({ theme, isSpeaking, audioLevel = 0,
       <FeatherCloud 
         theme={theme} 
         isSpeaking={isSpeaking} 
-        audioLevel={audioLevel} 
       />
     </View>
   );
