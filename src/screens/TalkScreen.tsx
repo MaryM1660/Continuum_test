@@ -235,7 +235,9 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
   };
 
   const handleToggleMute = async () => {
+    console.log('handleToggleMute called, current isMuted:', isMuted);
     const newMutedState = !isMuted;
+    console.log('newMutedState:', newMutedState);
     
     if (Platform.OS === 'web') {
       if (newMutedState) {
