@@ -42,10 +42,19 @@ class LLMService {
   private conversationHistory: LLMMessage[] = [];
 
   constructor() {
-    // API ключ можно установить через переменную окружения
+    // API ключ устанавливается через переменную окружения
     // Для Hugging Face можно использовать бесплатный токен: https://huggingface.co/settings/tokens
-    // Но многие модели работают и без токена (с ограничениями)
-    this.apiKey = null; // Можно добавить: process.env.HUGGINGFACE_API_KEY || null
+    // В production используйте переменные окружения для безопасности
+    if (typeof window !== 'undefined') {
+      // На веб используем токен из переменной окружения
+      // @ts-ignore - для веб-окружения
+      this.apiKey = process.env.REACT_APP_HUGGINGFACE_API_KEY || 
+                    process.env.HUGGINGFACE_API_KEY || 
+                    null;
+    } else {
+      // На мобильных платформах
+      this.apiKey = process.env.HUGGINGFACE_API_KEY || null;
+    }
   }
 
   setApiKey(key: string): void {
