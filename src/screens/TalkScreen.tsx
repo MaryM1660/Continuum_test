@@ -342,12 +342,37 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
       await speak("I'm sorry, I didn't catch that. Could you repeat?");
     } finally {
       setIsProcessingLLM(false);
-      // После ответа автоматически возобновляем запись
-      if (Platform.OS === 'web' && !isMuted && hasMicPermission) {
+      // После ответа автоматически возобновляем запись (если микрофон был включен)
+      if (Platform.OS === 'web' && hasMicPermission) {
+        // Проверяем, был ли микрофон включен до обработки
+        // Если был включен, возобновляем запись
         setTimeout(async () => {
-          console.log('Resuming recording after response');
-          await handleToggleMute(); // Включаем микрофон снова
-        }, 1000);
+          if (!isMuted) {
+            console.log('Resuming recording after response');
+            // Перезапускаем запись и распознавание
+            const micStarted = await microphoneService.startRecording((level) => {
+              setAudioLevel(level);
+            });
+
+            if (micStarted && voiceRecognitionService.isAvailable()) {
+              await voiceRecognitionService.startListening(
+                (result) => {
+                  setRecognizedText(result.text);
+                },
+                (error) => {
+                  console.error('Voice recognition error:', error);
+                },
+                (finalText: string) => {
+                  if (finalText.trim()) {
+                    handleUserSpeech(finalText);
+                  }
+                },
+                3000
+              );
+              setIsRecording(true);
+            }
+          }
+        }, 1500); // Даем время на завершение речи
       }
     }
   };
