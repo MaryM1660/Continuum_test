@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,6 +7,7 @@ import {
   ScrollView,
   Switch,
   Platform,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '../theme/useTheme';
@@ -35,6 +36,42 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
   const { themeMode, toggleTheme } = useThemeContext();
   const navigation = useNavigation<SideDrawerNavigationProp>();
   const isDark = theme.background === darkTheme.background;
+  
+  // Анимация для плавного выезда слева
+  const slideAnim = useRef(new Animated.Value(-320)).current; // Начальная позиция слева (вне экрана)
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  
+  useEffect(() => {
+    if (visible) {
+      // Анимация появления: drawer выезжает слева, backdrop появляется
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      // Анимация исчезновения: drawer уезжает влево, backdrop исчезает
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: -320,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [visible, slideAnim, backdropOpacity]);
 
   const menuItems = [
     { id: 'SessionNotes', label: 'Session Notes', icon: 'DocumentText' as const },
@@ -56,15 +93,43 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
     onClose();
   };
 
+  if (!visible && slideAnim._value === -320) {
+    // Не рендерим компонент, если он скрыт и анимация завершена
+    return null;
+  }
+
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="none"
       transparent={true}
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={[styles.drawer, { backgroundColor: theme.surfaceElevated }]}>
+        <Animated.View
+          style={[
+            styles.backdrop,
+            {
+              opacity: backdropOpacity,
+            },
+          ]}
+          pointerEvents="box-none"
+        >
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={onClose}
+          />
+        </Animated.View>
+        <Animated.View
+          style={[
+            styles.drawer,
+            {
+              backgroundColor: theme.surfaceElevated,
+              transform: [{ translateX: slideAnim }],
+            },
+          ]}
+        >
           {Platform.OS === 'web' ? (
             <View style={styles.drawerContent}>
               <View style={styles.header}>
@@ -159,12 +224,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
               </ScrollView>
             </SafeAreaView>
           )}
-        </View>
-        <TouchableOpacity
-          style={styles.backdrop}
-          activeOpacity={1}
-          onPress={onClose}
-        />
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -187,10 +247,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 10, // spacing.lg / 2
     elevation: 10,
+    zIndex: 1000,
   },
   backdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    zIndex: 999,
   },
   drawerContent: {
     flex: 1,

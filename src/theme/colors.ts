@@ -103,10 +103,6 @@ export const lightTheme = {
   info: '#0969DA',                 // Информация (синий)
   infoLight: '#E3F2FD',             // Светлый фон для информации
   
-  // Для облака (cloud)
-  cloudBase: '#1F7EB9',
-  cloudGlow: '#4A9FD9',
-  cloudActive: '#1565A0',
 };
 
 export const darkTheme = {
@@ -144,10 +140,6 @@ export const darkTheme = {
   info: '#58A6FF',                 // Информация
   infoLight: '#0C2D6B',            // Темный фон для информации
   
-  // Для облака (cloud)
-  cloudBase: '#58A6FF',
-  cloudGlow: '#79C0FF',
-  cloudActive: '#4493F8',
 };
 
 export type Theme = typeof lightTheme;

@@ -8,7 +8,6 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { Cloud } from '../components/Cloud';
 import { MicButtons } from '../components/MicButtons';
 import { useTheme } from '../theme/useTheme';
 import { Audio } from 'expo-av';
@@ -21,8 +20,7 @@ import { RootStackParamList } from '../../App';
 import { ScreenContainer, Container, Stack, Section } from '../components/layout';
 import { Text } from '../components/typography';
 import { Icon } from '../components/icons';
-import { VolumeSlider } from '../components/VolumeSlider';
-import { DeviceSelector } from '../components/DeviceSelector';
+import { LiquidGlassButton } from '../components/LiquidGlassButton';
 
 type TalkScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Talk'>;
 
@@ -34,28 +32,30 @@ type OnboardingStep = 1 | 2 | 3 | 'complete';
 
 export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
   const theme = useTheme();
-  const navigation = useNavigation<TalkScreenNavigationProp>();
+  // navigation и onOpenDrawer могут использоваться в будущем для навигации
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>(1);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [hasMicPermission, setHasMicPermission] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
   const [isWaitingForUser, setIsWaitingForUser] = useState(false);
-  const [volume, setVolume] = useState(0.8); // 0-1
-  const [audioDevice, setAudioDevice] = useState<string>('speaker'); // 'speaker', 'headphones', 'bluetooth'
-  const [inputDevice, setInputDevice] = useState<string>('phone'); // 'phone', 'headphones'
-  const [outputDevice, setOutputDevice] = useState<string>('speaker'); // 'speaker', 'headphones'
-  const [showVolumeSlider, setShowVolumeSlider] = useState(false);
-  const [showDeviceSelector, setShowDeviceSelector] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recognizedText, setRecognizedText] = useState<string>('');
   const [isProcessingLLM, setIsProcessingLLM] = useState(false);
   const [displayText, setDisplayText] = useState<string>(''); // Текст для отображения на экране
   const [speechText, setSpeechText] = useState<string>(''); // Текст для озвучки
+  
+  // Refs
   const wasMutedBeforeProcessing = React.useRef<boolean>(false);
   const lastInterimText = React.useRef<string>('');
   const lastInterimTime = React.useRef<number>(0);
   const silenceTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const isMutedRef = React.useRef<boolean>(true); // Ref для актуального состояния isMuted
+  
+  // Синхронизируем ref с state
+  React.useEffect(() => {
+    isMutedRef.current = isMuted;
+  }, [isMuted]);
 
   // Запрос разрешения на микрофон
   const requestMicPermission = async (): Promise<boolean> => {
@@ -123,7 +123,7 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
         setAudioLevel(Math.random() * 0.5 + 0.3);
       }, 100);
 
-      await speakText(text, volume);
+      await speakText(text);
       
       clearInterval(interval);
       setAudioLevel(0);
@@ -192,8 +192,18 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
   useEffect(() => {
     return () => {
       if (Platform.OS === 'web') {
-        microphoneService.stopRecording();
-        voiceRecognitionService.stopListening();
+        try {
+          microphoneService.stopRecording();
+        } catch (error) {
+          // Игнорируем ошибки при остановке, если сервис не запущен
+          console.log('Cleanup: microphoneService already stopped');
+        }
+        try {
+          voiceRecognitionService.stopListening();
+        } catch (error) {
+          // Игнорируем ошибки при остановке, если сервис не запущен
+          console.log('Cleanup: voiceRecognitionService already stopped');
+        }
       }
     };
   }, []);
@@ -308,6 +318,138 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
     }
   };
 
+  // Единый callback для обработки результатов распознавания
+  // Используется и при первоначальном запуске, и при возобновлении после ответа коуча
+  const createRecognitionCallback = () => {
+    return (result: any) => {
+      console.log('✅ [MAIN] Recognition result received!', result);
+      console.log('✅ [MAIN] Text:', result.text, 'isFinal:', result.isFinal);
+      
+      // Обновляем распознанный текст для отображения
+      setRecognizedText(result.text);
+      
+      // ВАЖНО: Логируем ВСЕ результаты, особенно финальные
+      if (result.isFinal) {
+        console.log('🎉🎉🎉 [MAIN] FINAL RESULT RECEIVED:', result.text);
+        console.log('🎉🎉🎉 [MAIN] FULL SENTENCE:', result.text);
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('🎤 ВЫ СКАЗАЛИ (ФИНАЛЬНЫЙ РЕЗУЛЬТАТ):', result.text);
+        console.log('═══════════════════════════════════════════════════════════');
+        
+        // Очищаем таймер тишины
+        if (silenceTimeoutRef.current) {
+          clearTimeout(silenceTimeoutRef.current);
+          silenceTimeoutRef.current = null;
+        }
+        lastInterimText.current = '';
+        lastInterimTime.current = 0;
+        
+        // Отправляем в LLM
+        console.log('📤 [MAIN] Sending to LLM:', result.text);
+        setTimeout(() => {
+          handleUserSpeech(result.text);
+        }, 500);
+      } else {
+        // ПРОМЕЖУТОЧНЫЙ РЕЗУЛЬТАТ - выводим в консоль
+        console.log('⏳ [MAIN] Interim result:', result.text);
+        console.log('───────────────────────────────────────────────────────────');
+        console.log('🎤 ВЫ ГОВОРИТЕ (промежуточный):', result.text);
+        console.log('───────────────────────────────────────────────────────────');
+        
+        // Сохраняем промежуточный результат для детекции тишины
+        const currentText = result.text.trim();
+        if (currentText) {
+          lastInterimText.current = currentText;
+          lastInterimTime.current = Date.now();
+          
+          // Очищаем предыдущий таймер
+          if (silenceTimeoutRef.current) {
+            clearTimeout(silenceTimeoutRef.current);
+            silenceTimeoutRef.current = null;
+          }
+          
+          // Проверяем, можно ли считать это предложением
+          const hasSentenceEnd = /[.!?]\s*$/.test(currentText);
+          const wordCount = currentText.split(/\s+/).length;
+          
+          // Если есть знак конца предложения И достаточно слов (минимум 5), считаем финальным
+          if (hasSentenceEnd && wordCount >= 5) {
+            console.log('📝 [MAIN] Sentence end detected, treating interim as final');
+            console.log('🎉🎉🎉 [MAIN] FINAL SENTENCE (from sentence end):', currentText);
+            console.log('═══════════════════════════════════════════════════════════');
+            console.log('🎤 ВЫ СКАЗАЛИ (ФИНАЛЬНЫЙ - по знаку конца):', currentText);
+            console.log('═══════════════════════════════════════════════════════════');
+            
+            setRecognizedText(currentText);
+            setAudioLevel(0);
+            
+            console.log('📤 [MAIN] Sending to LLM (from sentence end):', currentText);
+            setTimeout(() => {
+              handleUserSpeech(currentText);
+            }, 500);
+            
+            lastInterimText.current = '';
+            lastInterimTime.current = 0;
+          } else if (wordCount >= 50) {
+            // Если нет конца предложения, но текст длинный (50+ слов), тоже считаем финальным
+            console.log('📏 [MAIN] Long text detected (', wordCount, ' words), treating interim as final');
+            console.log('🎉🎉🎉 [MAIN] FINAL SENTENCE (from length):', currentText);
+            console.log('═══════════════════════════════════════════════════════════');
+            console.log('🎤 ВЫ СКАЗАЛИ (ФИНАЛЬНЫЙ - по длине):', currentText);
+            console.log('═══════════════════════════════════════════════════════════');
+            
+            setRecognizedText(currentText);
+            setAudioLevel(0);
+            
+            console.log('📤 [MAIN] Sending to LLM (from length):', currentText);
+            setTimeout(() => {
+              handleUserSpeech(currentText);
+            }, 500);
+            
+            lastInterimText.current = '';
+            lastInterimTime.current = 0;
+          } else {
+            // Устанавливаем таймер на случай тишины
+            silenceTimeoutRef.current = setTimeout(() => {
+              const timeSinceLastUpdate = Date.now() - lastInterimTime.current;
+              const savedText = lastInterimText.current;
+              
+              if (savedText && savedText.trim() && timeSinceLastUpdate >= 3000) {
+                console.log('⏰ [MAIN] Silence detected (', timeSinceLastUpdate, 'ms), treating interim as final');
+                console.log('🎉🎉🎉 [MAIN] FINAL SENTENCE (from silence):', savedText);
+                console.log('═══════════════════════════════════════════════════════════');
+                console.log('🎤 ВЫ СКАЗАЛИ (ФИНАЛЬНЫЙ - по тишине):', savedText);
+                console.log('═══════════════════════════════════════════════════════════');
+                
+                setRecognizedText(savedText);
+                setAudioLevel(0);
+                
+                console.log('📤 [MAIN] Sending to LLM (from silence):', savedText);
+                setTimeout(() => {
+                  handleUserSpeech(savedText);
+                }, 500);
+              }
+            }, 3000);
+          }
+        }
+      }
+    };
+  };
+
+  // Единый callback для обработки ошибок
+  const createErrorCallback = () => {
+    return (error: Error) => {
+      console.error('❌ [MAIN] Recognition error:', error);
+      // no-speech и aborted - нормальные события, не останавливаем
+      if (error.message && !error.message.includes('no-speech') && !error.message.includes('aborted')) {
+        // Только критические ошибки останавливают запись
+        console.error('❌ [MAIN] Critical error, stopping:', error);
+        setIsRecording(false);
+        setAudioLevel(0);
+      }
+    };
+  };
+
   const handleToggleMute = async () => {
     console.log('🔘 [BUTTON] handleToggleMute called, current isMuted:', isMuted);
     const newMutedState = !isMuted;
@@ -346,142 +488,8 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
           console.log('✅ [BUTTON] Service is available, calling startListening...');
           console.log('📞 [BUTTON] About to call voiceRecognitionService.startListening...');
           const recognitionStarted = await voiceRecognitionService.startListening(
-            (result) => {
-              console.log('✅ [MAIN] Recognition result received!', result);
-              console.log('✅ [MAIN] Text:', result.text, 'isFinal:', result.isFinal);
-              
-              // ВАЖНО: Логируем ВСЕ результаты, особенно финальные
-              if (result.isFinal) {
-                console.log('🎉🎉🎉 [MAIN] FINAL RESULT RECEIVED:', result.text);
-                console.log('🎉🎉🎉 [MAIN] FULL SENTENCE:', result.text);
-                console.log('═══════════════════════════════════════════════════════════');
-                console.log('🎤 ВЫ СКАЗАЛИ (ФИНАЛЬНЫЙ РЕЗУЛЬТАТ):', result.text);
-                console.log('═══════════════════════════════════════════════════════════');
-                
-                // Очищаем таймер тишины
-                if (silenceTimeoutRef.current) {
-                  clearTimeout(silenceTimeoutRef.current);
-                  silenceTimeoutRef.current = null;
-                }
-                lastInterimText.current = '';
-                lastInterimTime.current = 0;
-              } else {
-                // ПРОМЕЖУТОЧНЫЙ РЕЗУЛЬТАТ - выводим в консоль, чтобы пользователь видела
-                console.log('⏳ [MAIN] Interim result:', result.text);
-                console.log('───────────────────────────────────────────────────────────');
-                console.log('🎤 ВЫ ГОВОРИТЕ (промежуточный):', result.text);
-                console.log('───────────────────────────────────────────────────────────');
-                
-                // Сохраняем промежуточный результат
-                const currentText = result.text.trim();
-                if (currentText) {
-                  lastInterimText.current = currentText;
-                  const now = Date.now();
-                  lastInterimTime.current = now;
-                  
-                  // Очищаем предыдущий таймер
-                  if (silenceTimeoutRef.current) {
-                    clearTimeout(silenceTimeoutRef.current);
-                    silenceTimeoutRef.current = null;
-                  }
-                  
-                  // Проверяем, можно ли считать это предложением (есть точка, восклицательный или вопросительный знак)
-                  const hasSentenceEnd = /[.!?]\s*$/.test(currentText);
-                  const wordCount = currentText.split(/\s+/).length;
-                  
-                  // Если есть знак конца предложения И достаточно слов (минимум 5), считаем финальным
-                  if (hasSentenceEnd && wordCount >= 5) {
-                    console.log('📝 [MAIN] Sentence end detected, treating interim as final');
-                    console.log('🎉🎉🎉 [MAIN] FINAL SENTENCE (from sentence end):', currentText);
-                    console.log('═══════════════════════════════════════════════════════════');
-                    console.log('🎤 ВЫ СКАЗАЛИ (ФИНАЛЬНЫЙ - по знаку конца):', currentText);
-                    console.log('═══════════════════════════════════════════════════════════');
-                    
-                    // Обрабатываем как финальный результат
-                    setRecognizedText(currentText);
-                    setAudioLevel(0);
-                    
-                    console.log('📤 [MAIN] Sending to LLM (from sentence end):', currentText);
-                    setTimeout(() => {
-                      handleUserSpeech(currentText);
-                    }, 500);
-                    
-                    // Очищаем для следующего предложения
-                    lastInterimText.current = '';
-                    lastInterimTime.current = 0;
-                  } else {
-                    // Если нет конца предложения, но текст длинный (50+ слов), тоже считаем финальным
-                    if (wordCount >= 50) {
-                      console.log('📏 [MAIN] Long text detected (', wordCount, ' words), treating interim as final');
-                      console.log('🎉🎉🎉 [MAIN] FINAL SENTENCE (from length):', currentText);
-                      console.log('═══════════════════════════════════════════════════════════');
-                      console.log('🎤 ВЫ СКАЗАЛИ (ФИНАЛЬНЫЙ - по длине):', currentText);
-                      console.log('═══════════════════════════════════════════════════════════');
-                      
-                      setRecognizedText(currentText);
-                      setAudioLevel(0);
-                      
-                      console.log('📤 [MAIN] Sending to LLM (from length):', currentText);
-                      setTimeout(() => {
-                        handleUserSpeech(currentText);
-                      }, 500);
-                      
-                      lastInterimText.current = '';
-                      lastInterimTime.current = 0;
-                    } else {
-                      // Устанавливаем таймер на случай тишины (но это не сработает при постоянном звуке)
-                      silenceTimeoutRef.current = setTimeout(() => {
-                        const timeSinceLastUpdate = Date.now() - lastInterimTime.current;
-                        const savedText = lastInterimText.current;
-                        
-                        if (savedText && savedText.trim() && timeSinceLastUpdate >= 3000) {
-                          console.log('⏰ [MAIN] Silence detected (', timeSinceLastUpdate, 'ms), treating interim as final');
-                          console.log('🎉🎉🎉 [MAIN] FINAL SENTENCE (from silence):', savedText);
-                          console.log('═══════════════════════════════════════════════════════════');
-                          console.log('🎤 ВЫ СКАЗАЛИ (ФИНАЛЬНЫЙ - по тишине):', savedText);
-                          console.log('═══════════════════════════════════════════════════════════');
-                          
-                          setRecognizedText(savedText);
-                          setAudioLevel(0);
-                          
-                          console.log('📤 [MAIN] Sending to LLM (from silence):', savedText);
-                          setTimeout(() => {
-                            handleUserSpeech(savedText);
-                          }, 500);
-                        }
-                      }, 3000);
-                    }
-                  }
-                }
-              }
-              
-              setRecognizedText(result.text);
-              
-              // Визуализация: промежуточные результаты = звук идет
-              if (result.text && !result.isFinal) {
-                setAudioLevel(0.5);
-              } else if (result.isFinal) {
-                setAudioLevel(0);
-              }
-              
-              // При финальном результате отправляем в LLM
-              if (result.isFinal && result.text.trim()) {
-                console.log('📤 [MAIN] Sending to LLM:', result.text);
-                setTimeout(() => {
-                  handleUserSpeech(result.text);
-                }, 500);
-              }
-            },
-            (error) => {
-              console.error('❌ [MAIN] Recognition error:', error);
-              // no-speech и aborted - нормальные события, не останавливаем
-              if (error.message && !error.message.includes('no-speech') && !error.message.includes('aborted')) {
-                // Только критические ошибки останавливают запись
-                console.error('❌ [MAIN] Critical error, stopping:', error);
-                setIsRecording(false);
-                setAudioLevel(0);
-              }
-            }
+            createRecognitionCallback(),
+            createErrorCallback()
           );
           
           console.log('📞 [BUTTON] startListening returned:', recognitionStarted);
@@ -564,106 +572,40 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
       await speak(errorMsg);
     } finally {
       setIsProcessingLLM(false);
-      // После ответа автоматически возобновляем запись (если микрофон был включен)
-      if (Platform.OS === 'web' && hasMicPermission && !wasMutedBeforeProcessing.current) {
-        // Проверяем, был ли микрофон включен до обработки
-        // Если был включен, возобновляем запись после небольшой задержки
+      // После ответа автоматически возобновляем запись (если микрофон НЕ выключен пользователем)
+      // ВАЖНО: Используем ref для проверки актуального состояния isMuted в setTimeout
+      if (Platform.OS === 'web' && hasMicPermission) {
+        // Микрофон должен продолжать работать - возобновляем запись после небольшой задержки
         setTimeout(async () => {
-          console.log('Resuming recording after response');
+          // Проверяем актуальное состояние через ref
+          const currentIsMuted = isMutedRef.current;
+          console.log('🔄 [RESUME] Resuming recording after response, isMuted (from ref):', currentIsMuted);
           
-          if (voiceRecognitionService.isAvailable()) {
+          // Если микрофон не выключен пользователем, возобновляем запись
+          if (!currentIsMuted && voiceRecognitionService.isAvailable()) {
+            console.log('🔄 [RESUME] Starting recognition...');
             const recognitionStarted = await voiceRecognitionService.startListening(
-              (result) => {
-                setRecognizedText(result.text);
-                
-                if (result.text && !result.isFinal) {
-                  setAudioLevel(0.5);
-                } else if (result.isFinal) {
-                  setAudioLevel(0);
-                }
-                
-                if (result.isFinal && result.text.trim()) {
-                  setTimeout(() => {
-                    handleUserSpeech(result.text);
-                  }, 500);
-                }
-              },
-              (error) => {
-                console.error('❌ [SPEECH] Error:', error);
-                if (error.message && !error.message.includes('no-speech') && !error.message.includes('aborted')) {
-                  setIsRecording(false);
-                  setAudioLevel(0);
-                }
-              }
+              createRecognitionCallback(),
+              createErrorCallback()
             );
             
             if (recognitionStarted) {
               setIsRecording(true);
+              console.log('✅ [RESUME] Recording resumed successfully');
+            } else {
+              console.error('❌ [RESUME] Failed to resume recording');
             }
+          } else {
+            console.log('⏸️ [RESUME] Not resuming - isMuted:', currentIsMuted, 'hasMicPermission:', hasMicPermission, 'isAvailable:', voiceRecognitionService.isAvailable());
           }
-        }, 1500);
+        }, 1000); // Задержка 1 секунда после ответа коуча
+      } else {
+        console.log('⏸️ [RESUME] Not resuming - Platform:', Platform.OS, 'hasMicPermission:', hasMicPermission);
       }
     }
   };
 
-  // Обработка изменения громкости
-  const handleSoundLevel = () => {
-    setShowVolumeSlider(true);
-  };
 
-  const handleVolumeChange = (newVolume: number) => {
-    console.log('Volume changed to:', newVolume);
-    setVolume(newVolume);
-    // Громкость будет применена при следующем speak()
-    // Можно также применить к текущей речи, если она идет
-    if (Platform.OS === 'web' && 'speechSynthesis' in window && isSpeaking) {
-      // Останавливаем текущую речь и перезапускаем с новой громкостью
-      // (в реальности это сложно, поэтому просто применяем к следующей)
-    }
-  };
-
-  // Обработка выбора аудио устройства
-  const handleMicSelect = () => {
-    if (Platform.OS === 'web') {
-      // На веб выбор устройств ограничен браузером
-      // Показываем информативное сообщение
-      Alert.alert(
-        'Device Selection',
-        'On web, audio devices are managed by your browser. To change devices:\n\n' +
-        '1. Click the lock icon in your browser address bar\n' +
-        '2. Go to Site Settings\n' +
-        '3. Change microphone and speaker settings\n\n' +
-        'Or use your system settings to set default devices.',
-        [{ text: 'OK' }]
-      );
-    } else {
-      setShowDeviceSelector(true);
-    }
-  };
-
-  const handleInputDeviceSelect = (deviceId: string) => {
-    setInputDevice(deviceId);
-    // На веб это эмуляция, реальное переключение требует перезапуска записи
-    if (Platform.OS === 'web' && isRecording) {
-      Alert.alert(
-        'Device Changed',
-        'To apply the new microphone, please stop and restart recording.',
-        [{ text: 'OK' }]
-      );
-    }
-  };
-
-  const handleOutputDeviceSelect = (deviceId: string) => {
-    setOutputDevice(deviceId);
-    // На веб это эмуляция, реальное переключение требует системных настроек
-    if (Platform.OS === 'web') {
-      Alert.alert(
-        'Output Device',
-        'On web, speaker output is controlled by your system. Please change the default audio output in your system settings.',
-        [{ text: 'OK' }]
-      );
-    }
-  };
 
   const handleOption1 = async () => {
     // Кнопки всегда активны, независимо от записи
@@ -707,21 +649,15 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
                 {COACH_PHRASES.onboarding.step1}
               </Text>
               {isWaitingForUser && (
-                <TouchableOpacity
+                <LiquidGlassButton
                   onPress={handleStep1}
                   disabled={isSpeaking}
-                  style={[
-                    styles.button,
-                    { 
-                      backgroundColor: theme.primary,
-                      opacity: isSpeaking ? 0.5 : 1,
-                    }
-                  ]}
+                  variant="primary"
+                  theme={theme}
+                  textVariant="buttonLarge"
                 >
-                  <Text variant="buttonLarge" style={{ color: theme.primaryContrast }}>
-                    Hi
-                  </Text>
-                </TouchableOpacity>
+                  Hi
+                </LiquidGlassButton>
               )}
             </Stack>
           </Container>
@@ -734,21 +670,15 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
                 {COACH_PHRASES.onboarding.step2}
               </Text>
               {isWaitingForUser && (
-                <TouchableOpacity
+                <LiquidGlassButton
                   onPress={handleStep2}
                   disabled={isSpeaking}
-                  style={[
-                    styles.button,
-                    { 
-                      backgroundColor: theme.primary,
-                      opacity: isSpeaking ? 0.5 : 1,
-                    }
-                  ]}
+                  variant="primary"
+                  theme={theme}
+                  textVariant="buttonLarge"
                 >
-                  <Text variant="buttonLarge" style={{ color: theme.primaryContrast }}>
-                    Ok
-                  </Text>
-                </TouchableOpacity>
+                  Ok
+                </LiquidGlassButton>
               )}
             </Stack>
           </Container>
@@ -761,21 +691,15 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
                 {COACH_PHRASES.onboarding.step3}
               </Text>
               {isWaitingForUser && (
-                <TouchableOpacity
+                <LiquidGlassButton
                   onPress={handleStep3}
                   disabled={isSpeaking}
-                  style={[
-                    styles.button,
-                    { 
-                      backgroundColor: theme.primary,
-                      opacity: isSpeaking ? 0.5 : 1,
-                    }
-                  ]}
+                  variant="primary"
+                  theme={theme}
+                  textVariant="buttonLarge"
                 >
-                  <Text variant="buttonLarge" style={{ color: theme.primaryContrast }}>
-                    Turn on the mic
-                  </Text>
-                </TouchableOpacity>
+                  Turn on the mic
+                </LiquidGlassButton>
               )}
             </Stack>
           </Container>
@@ -791,77 +715,61 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
     return (
       <Container>
         <Stack gap={theme.spacing['2xl']} align="center">
-          {/* Показываем статус обработки */}
-          {isProcessingLLM && (
+          {isProcessingLLM ? (
             <Section marginTop="none">
               <Text variant="caption" align="center" style={{ maxWidth: '90%', color: theme.textSecondary }}>
                 Thinking...
               </Text>
             </Section>
-          )}
-
-          {/* Показываем текст для отображения (отображается сразу, до озвучки) */}
-          {displayText && (
+          ) : null}
+{displayText ? (
             <Section marginTop="none">
               <Text variant="bodyLarge" align="center" style={{ maxWidth: '90%' }}>
                 {displayText}
               </Text>
             </Section>
-          )}
-
-          {/* Показываем инструкцию при записи */}
-          {isRecording && (
-            <Section marginTop="none">
-              <Text variant="body" align="center" style={{ maxWidth: '90%' }}>
-                Listening... Speak now
-              </Text>
-            </Section>
-          )}
-          
-          {/* Кнопки опций всегда активны, независимо от записи */}
+          ) : null}
           <Section marginTop="none">
             <Stack gap={theme.spacing.base} align="stretch">
-              <TouchableOpacity
+              <LiquidGlassButton
                 onPress={handleOption1}
-                style={[
-                  styles.optionButton,
-                  { 
-                    backgroundColor: theme.surface,
-                    borderColor: theme.border,
-                  }
-                ]}
+                variant="secondary"
+                theme={theme}
+                textVariant="body"
               >
-                <Text variant="body" align="center">
-                  {COACH_PHRASES.main.option1}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+                {COACH_PHRASES.main.option1}
+              </LiquidGlassButton>
+              <LiquidGlassButton
                 onPress={handleOption2}
-                style={[
-                  styles.optionButton,
-                  { 
-                    backgroundColor: theme.surface,
-                    borderColor: theme.border,
-                  }
-                ]}
+                variant="secondary"
+                theme={theme}
+                textVariant="body"
               >
-                <Text variant="body" align="center">
-                  {COACH_PHRASES.main.option2}
-                </Text>
-              </TouchableOpacity>
+                {COACH_PHRASES.main.option2}
+              </LiquidGlassButton>
             </Stack>
           </Section>
-
           <Section marginTop="none">
             <MicButtons
               theme={theme}
               isMuted={isMuted}
-              isRecording={isRecording}
-              audioLevel={audioLevel}
               onToggleMute={handleToggleMute}
-              onMicSelect={handleMicSelect}
-              onSoundLevel={handleSoundLevel}
             />
+            {recognizedText ? (
+              <View style={{ marginTop: theme.spacing.sm, paddingHorizontal: theme.spacing.base }}>
+                <Text 
+                  variant="caption" 
+                  style={{ 
+                    fontSize: 10, 
+                    color: theme.textTertiary,
+                    textAlign: 'center',
+                    fontStyle: 'italic',
+                  }}
+                >
+                  DEBUG: {recognizedText}
+                </Text>
+              </View>
+            ) : null}
           </Section>
         </Stack>
       </Container>
@@ -871,52 +779,26 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
   return (
     <ScreenContainer>
       <StatusBar style={theme.background === '#FFFFFF' ? 'dark' : 'light'} />
-      
-      {/* Кнопка меню (drawer) */}
       {onboardingStep === 'complete' && (
-        <TouchableOpacity
+        <LiquidGlassButton
           onPress={() => onOpenDrawer?.()}
-          style={[styles.menuButton, { backgroundColor: theme.surface }]}
-        >
-          <Icon name="Bars3" size={28} />
-        </TouchableOpacity>
-      )}
-      
-      {/* Облако - фиксированное в верхней части */}
-      <View
-        // На web облако не должно перехватывать клики по контенту/кнопкам ниже
-        pointerEvents={Platform.OS === 'web' ? 'none' : 'auto'}
-        style={[styles.cloudContainer, { backgroundColor: 'transparent' }]}
-      >
-        <Cloud
+          variant="secondary"
           theme={theme}
-          isSpeaking={isSpeaking}
-          audioLevel={0}
-        />
+          style={styles.menuButton}
+          borderRadius={24}
+        >
+          <Icon name="Bars3" size={28} color={theme.text} />
+        </LiquidGlassButton>
+      )}
+      <View
+        pointerEvents="none"
+        style={styles.circleContainer}
+      >
+        <View style={[styles.blueCircle, { backgroundColor: theme.primary }]} />
       </View>
-
-      {/* Контент - с правильными отступами снизу */}
       <View style={styles.contentWrapper}>
         {onboardingStep !== 'complete' ? renderOnboardingContent() : renderMainContent()}
       </View>
-
-      {/* Слайдер громкости */}
-      <VolumeSlider
-        visible={showVolumeSlider}
-        volume={volume}
-        onClose={() => setShowVolumeSlider(false)}
-        onVolumeChange={handleVolumeChange}
-      />
-
-      {/* Селектор устройств */}
-      <DeviceSelector
-        visible={showDeviceSelector}
-        selectedInputDevice={inputDevice}
-        selectedOutputDevice={outputDevice}
-        onClose={() => setShowDeviceSelector(false)}
-        onInputDeviceSelect={handleInputDeviceSelect}
-        onOutputDeviceSelect={handleOutputDeviceSelect}
-      />
     </ScreenContainer>
   );
 };
@@ -938,7 +820,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8, // spacing.sm
     elevation: 8,
   },
-  cloudContainer: {
+  circleContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -948,14 +830,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1,
     backgroundColor: 'transparent',
-    overflow: 'visible', // Чтобы облачко не обрезалось
+  },
+  blueCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
   },
   contentWrapper: {
     flex: 1,
     justifyContent: 'flex-end',
     paddingBottom: 40, // spacing['3xl']
     zIndex: 2,
-    paddingTop: '50%', // Отступ сверху, чтобы контент не налезал на облако
+    paddingTop: '50%', // Отступ сверху для контента
   },
   bodyText: {
     // Используем типографику из theme

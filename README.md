@@ -27,9 +27,8 @@ Voice-first career coach for tech professionals (SWE, DevOps, Data, Product). Th
 
 ## 📱 Screens
 
-1. **Talk Screen** - main screen with cloud
+1. **Talk Screen** - main screen
    - Onboarding (3 steps)
-   - Interactive cloud with animations
    - Microphone control buttons
 
 2. **Side Drawer** - side menu
@@ -67,7 +66,7 @@ npm start
 
 ```
 ├── src/
-│   ├── components/      # UI components (Cloud, MicButtons, SideDrawer)
+│   ├── components/      # UI components (MicButtons, SideDrawer)
 │   │   ├── icons/       # Icon components (Heroicons Solid)
 │   │   ├── layout/      # Layout components (Container, Section, Stack)
 │   │   └── typography/  # Typography components
@@ -80,16 +79,10 @@ npm start
 
 ## ✨ Features
 
-- **Cloud**: 
-  - Glows and changes colors like an equalizer when coach is speaking
-  - Can be dragged when coach is not speaking (for fidgeting)
-  - Feather-like appearance with color shifting and Siri-like glow effect
-  
 - **Voice Interaction**: 
   - Speech synthesis emulation
   - Microphone permission request
   - Sound visualization
-  - Volume control and device selection
 
 - **Themes**: 
   - Automatic device theme detection
