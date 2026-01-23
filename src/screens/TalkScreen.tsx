@@ -375,8 +375,26 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
     return (
       <Container>
         <Stack gap={theme.spacing['2xl']} align="center">
+          {/* Показываем распознанный текст, если есть */}
+          {recognizedText && (
+            <Section marginTop="none">
+              <Text variant="caption" align="center" style={{ maxWidth: '90%', fontStyle: 'italic', color: theme.textSecondary }}>
+                You said: "{recognizedText}"
+              </Text>
+            </Section>
+          )}
+
+          {/* Показываем статус обработки */}
+          {isProcessingLLM && (
+            <Section marginTop="none">
+              <Text variant="caption" align="center" style={{ maxWidth: '90%', color: theme.textSecondary }}>
+                Thinking...
+              </Text>
+            </Section>
+          )}
+
           {/* Показываем текст только после озвучивания */}
-          {isWaitingForUser && (
+          {isWaitingForUser && !isRecording && (
             <Section marginTop="none">
               <Stack gap={theme.spacing.base} align="center">
                 <Text variant="bodyLarge" align="center" style={{ maxWidth: '90%' }}>
@@ -388,19 +406,28 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
               </Stack>
             </Section>
           )}
+
+          {/* Показываем инструкцию при записи */}
+          {isRecording && (
+            <Section marginTop="none">
+              <Text variant="body" align="center" style={{ maxWidth: '90%' }}>
+                Listening... Speak now
+              </Text>
+            </Section>
+          )}
           
           <Section marginTop="none">
-            {isWaitingForUser && (
+            {isWaitingForUser && !isRecording && (
               <Stack gap={theme.spacing.base} align="stretch">
                 <TouchableOpacity
                   onPress={handleOption1}
-                  disabled={isSpeaking}
+                  disabled={isSpeaking || isProcessingLLM}
                   style={[
                     styles.optionButton,
                     { 
                       backgroundColor: theme.surface,
                       borderColor: theme.border,
-                      opacity: isSpeaking ? 0.5 : 1,
+                      opacity: (isSpeaking || isProcessingLLM) ? 0.5 : 1,
                     }
                   ]}
                 >
@@ -410,13 +437,13 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={handleOption2}
-                  disabled={isSpeaking}
+                  disabled={isSpeaking || isProcessingLLM}
                   style={[
                     styles.optionButton,
                     { 
                       backgroundColor: theme.surface,
                       borderColor: theme.border,
-                      opacity: isSpeaking ? 0.5 : 1,
+                      opacity: (isSpeaking || isProcessingLLM) ? 0.5 : 1,
                     }
                   ]}
                 >
