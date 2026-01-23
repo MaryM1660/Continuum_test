@@ -285,27 +285,12 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
             },
             (error) => {
               console.error('Voice recognition error:', error);
-              setIsRecording(false);
-              // При ошибке пытаемся перезапустить
-              if (error.message.includes('no-speech') || error.message.includes('aborted')) {
-                console.log('Recognition error, will retry...');
-                setTimeout(() => {
-                  if (!isMuted && hasMicPermission) {
-                    voiceRecognitionService.startListening(
-                      (result) => {
-                        setRecognizedText(result.text);
-                        if (result.isFinal && result.text.trim()) {
-                          setTimeout(() => {
-                            handleUserSpeech(result.text);
-                          }, 500);
-                        }
-                      },
-                      (err) => console.error('Retry error:', err),
-                      undefined,
-                      2000
-                    );
-                  }
-                }, 1000);
+              // При некоторых ошибках (no-speech, aborted) просто продолжаем
+              // Recognition автоматически перезапустится через onend
+              if (error.message && (error.message.includes('no-speech') || error.message.includes('aborted'))) {
+                console.log('Recognition will auto-restart');
+              } else {
+                setIsRecording(false);
               }
             },
             // Callback при паузе (fallback, если финальный результат не пришел)

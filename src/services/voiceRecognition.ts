@@ -126,11 +126,17 @@ class VoiceRecognitionService {
     try {
       this.recognition.start();
       this.isListening = true;
+      console.log('Speech recognition started');
       // Запускаем таймаут для автоматической отправки после паузы
       this.resetSilenceTimeout(silenceTimeoutMs);
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting recognition:', error);
+      // Если ошибка "already started", просто возвращаем true
+      if (error.message && error.message.includes('already started')) {
+        this.isListening = true;
+        return true;
+      }
       return false;
     }
   }
