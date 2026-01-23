@@ -50,6 +50,8 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recognizedText, setRecognizedText] = useState<string>('');
   const [isProcessingLLM, setIsProcessingLLM] = useState(false);
+  const [displayText, setDisplayText] = useState<string>(''); // Текст для отображения на экране
+  const [speechText, setSpeechText] = useState<string>(''); // Текст для озвучки
   const wasMutedBeforeProcessing = React.useRef<boolean>(false);
 
   // Запрос разрешения на микрофон
@@ -134,12 +136,58 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
     }
   };
 
-  // Автоматическое отображение кнопки при загрузке экрана (без озвучивания)
+  // Проверка разрешения микрофона при загрузке экрана
   useEffect(() => {
-    if (onboardingStep === 1) {
-      // На первом экране просто показываем кнопку без озвучивания
-      setIsWaitingForUser(true);
-    }
+    const checkMicPermission = async () => {
+      if (Platform.OS === 'web') {
+        // На веб проверяем через navigator.permissions
+        try {
+          if (navigator.permissions && navigator.permissions.query) {
+            const result = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+            if (result.state === 'granted') {
+              setHasMicPermission(true);
+              // Если разрешение есть, идем на онбординг или главный экран
+              if (onboardingStep === 1) {
+                setIsWaitingForUser(true);
+              }
+            } else {
+              // Если разрешения нет, показываем STEP 3
+              setOnboardingStep(3);
+              setIsWaitingForUser(true);
+            }
+          } else {
+            // Если API permissions недоступен, проверяем через попытку доступа
+            // Но не запрашиваем разрешение автоматически
+            setOnboardingStep(1);
+            setIsWaitingForUser(true);
+          }
+        } catch (error) {
+          console.log('Permission check not available, starting with onboarding');
+          setOnboardingStep(1);
+          setIsWaitingForUser(true);
+        }
+      } else {
+        // На мобильных проверяем через expo-av
+        try {
+          const { status } = await Audio.getPermissionsAsync();
+          if (status === 'granted') {
+            setHasMicPermission(true);
+            if (onboardingStep === 1) {
+              setIsWaitingForUser(true);
+            }
+          } else {
+            setOnboardingStep(3);
+            setIsWaitingForUser(true);
+          }
+        } catch (error) {
+          console.log('Error checking permission, starting with onboarding');
+          setOnboardingStep(1);
+          setIsWaitingForUser(true);
+        }
+      }
+    };
+
+    checkMicPermission();
   }, []);
 
   // Cleanup при размонтировании
@@ -172,7 +220,7 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
   const handleStep3 = async () => {
     if (isSpeaking || !isWaitingForUser) return;
     
-    console.log('handleStep3 called');
+    console.log('handleStep3 called - requesting microphone permission');
     setIsWaitingForUser(false);
     
     try {
@@ -180,7 +228,30 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
       const granted = await requestMicPermission();
       console.log('Microphone permission result:', granted);
       
-      // Всегда переходим на главный экран (на веб даже без разрешения)
+      // БЕЗ разрешения НЕ переходим дальше
+      if (!granted) {
+        setIsWaitingForUser(true);
+        if (Platform.OS !== 'web') {
+          Alert.alert(
+            'Microphone Permission Required',
+            'This app requires microphone access to function. Please grant permission to continue.',
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => setIsWaitingForUser(true) },
+              { text: 'Retry', onPress: handleStep3 },
+            ]
+          );
+        } else {
+          Alert.alert(
+            'Microphone Permission Required',
+            'Please allow microphone access in your browser settings to continue.',
+            [{ text: 'OK', onPress: () => setIsWaitingForUser(true) }]
+          );
+        }
+        return;
+      }
+      
+      // Только если разрешение получено, переходим на главный экран
+      setHasMicPermission(true);
       setOnboardingStep('complete');
       setIsMuted(false);
       
@@ -198,29 +269,34 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
       }, 300);
     } catch (error) {
       console.error('Error in handleStep3:', error);
-      // В случае ошибки все равно переходим на главный экран
-      setOnboardingStep('complete');
-      setIsMuted(false);
+      // В случае ошибки остаемся на STEP 3
       setIsWaitingForUser(true);
-      setTimeout(() => {
-        handleMainScreenWelcome();
-      }, 300);
+      Alert.alert(
+        'Error',
+        'Failed to request microphone permission. Please try again.',
+        [{ text: 'OK', onPress: () => setIsWaitingForUser(true) }]
+      );
     }
   };
 
   const handleMainScreenWelcome = async () => {
     console.log('handleMainScreenWelcome called');
     try {
-      // Всегда показываем контент СРАЗУ, даже если речь не работает
+      // Устанавливаем текст для отображения СРАЗУ (до озвучки)
+      setDisplayText(`${COACH_PHRASES.main.welcome}\n\n${COACH_PHRASES.main.chooseOption}`);
+      
+      // Устанавливаем текст для озвучки
+      const welcomeSpeech = `${COACH_PHRASES.main.welcome} ${COACH_PHRASES.main.chooseOption}`;
+      setSpeechText(welcomeSpeech);
+      
+      // Всегда показываем контент СРАЗУ
       setIsWaitingForUser(true);
       console.log('UI should be visible now');
       
-      // Пытаемся озвучить, но не блокируем UI если это не работает
-      // Запускаем асинхронно, не ждем
+      // Озвучиваем асинхронно, не блокируя UI
       (async () => {
         try {
-          await speak(COACH_PHRASES.main.welcome);
-          await speak(COACH_PHRASES.main.chooseOption);
+          await speak(welcomeSpeech);
         } catch (error) {
           console.warn('Speech error in welcome:', error);
           // UI уже показан, продолжаем работу
@@ -250,16 +326,11 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
       } else {
         // Запрашиваем разрешение, если еще не получено
         if (!hasMicPermission) {
-          console.log('Requesting microphone permission');
-          const granted = await requestMicPermission();
-          if (!granted) {
-            Alert.alert(
-              'Microphone Required',
-              'Please allow microphone access to use voice features.',
-              [{ text: 'OK' }]
-            );
-            return;
-          }
+          console.log('No microphone permission, redirecting to STEP 3');
+          // Переходим на STEP 3 для запроса разрешения
+          setOnboardingStep(3);
+          setIsWaitingForUser(true);
+          return;
         }
         
         console.log('Starting recording and recognition');
@@ -274,6 +345,17 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
             (result) => {
               console.log('Recognition result:', result);
               setRecognizedText(result.text);
+              
+              // Выводим распознанный текст в консоль
+              if (result.text && result.text.trim()) {
+                console.log('🎤 [MICROPHONE] Recognized text:', result.text);
+                if (result.isFinal) {
+                  console.log('✅ [MICROPHONE] Final result:', result.text);
+                } else {
+                  console.log('⏳ [MICROPHONE] Interim result:', result.text);
+                }
+              }
+              
               // При финальном результате сразу отправляем (через короткую паузу)
               if (result.isFinal && result.text.trim()) {
                 console.log('Final result received, will send to LLM:', result.text);
@@ -297,6 +379,7 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
             (finalText: string) => {
               console.log('Silence callback triggered, final text:', finalText);
               if (finalText.trim()) {
+                console.log('🎤 [MICROPHONE] Silence detected, final text:', finalText);
                 handleUserSpeech(finalText);
               }
             },
@@ -325,13 +408,24 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
     }
   };
 
+  // Функция для записи на бэк (пока эмуляция)
+  const logToBackend = async (type: 'voice' | 'button', content: string) => {
+    // TODO: Заменить на реальный API вызов
+    console.log(`📝 [BACKEND LOG] Type: ${type}, Content:`, content);
+    // В будущем здесь будет fetch('/api/log', { method: 'POST', body: { type, content } })
+  };
+
   const handleUserSpeech = async (text: string) => {
     if (isProcessingLLM || !text.trim()) {
       console.log('Skipping speech processing:', { isProcessingLLM, text: text.trim() });
       return;
     }
 
-    console.log('Processing user speech:', text);
+    console.log('🎤 [MICROPHONE] Processing user speech:', text);
+    console.log('📝 [BACKEND] Logging to backend - Type: voice, Content:', text);
+    
+    // Записываем распознанный текст на бэк (не показываем на экране)
+    await logToBackend('voice', text);
     
     // Сохраняем состояние микрофона перед обработкой
     wasMutedBeforeProcessing.current = isMuted;
@@ -344,7 +438,7 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
     }
 
     setIsProcessingLLM(true);
-    setRecognizedText('');
+    setRecognizedText(''); // Очищаем, но не показываем
 
     try {
       // Отправляем в LLM
@@ -352,14 +446,20 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
       console.log('LLM response:', response);
 
       if (response.text) {
+        // Устанавливаем текст для озвучки (но не для отображения, если не нужно)
+        setSpeechText(response.text);
         // Озвучиваем ответ с текущей громкостью
         await speak(response.text);
       } else {
-        await speak("I'm sorry, I didn't get a response. Could you try again?");
+        const errorMsg = "I'm sorry, I didn't get a response. Could you try again?";
+        setSpeechText(errorMsg);
+        await speak(errorMsg);
       }
     } catch (error) {
       console.error('Error processing speech:', error);
-      await speak("I'm sorry, I didn't catch that. Could you repeat?");
+      const errorMsg = "I'm sorry, I didn't catch that. Could you repeat?";
+      setSpeechText(errorMsg);
+      await speak(errorMsg);
     } finally {
       setIsProcessingLLM(false);
       // После ответа автоматически возобновляем запись (если микрофон был включен)
@@ -376,7 +476,18 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
           if (micStarted && voiceRecognitionService.isAvailable()) {
             const recognitionStarted = await voiceRecognitionService.startListening(
               (result) => {
+                // Обновляем recognizedText для внутреннего использования, но не показываем
                 setRecognizedText(result.text);
+                
+                // Выводим распознанный текст в консоль
+                if (result.text && result.text.trim()) {
+                  console.log('🎤 [MICROPHONE] Recognized text:', result.text);
+                  if (result.isFinal) {
+                    console.log('✅ [MICROPHONE] Final result:', result.text);
+                  } else {
+                    console.log('⏳ [MICROPHONE] Interim result:', result.text);
+                  }
+                }
               },
               (error) => {
                 console.error('Voice recognition error:', error);
@@ -384,6 +495,7 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
               },
               (finalText: string) => {
                 if (finalText.trim()) {
+                  console.log('🎤 [MICROPHONE] Silence detected, final text:', finalText);
                   handleUserSpeech(finalText);
                 }
               },
@@ -459,19 +571,35 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
   };
 
   const handleOption1 = async () => {
-    if (isSpeaking || !isWaitingForUser) return;
+    // Кнопки всегда активны, независимо от записи
+    const optionText = "Follow the coach's plan";
     
-    setIsWaitingForUser(false);
-    await speak("Great! Let's follow the coach's plan. I'll guide you through a structured conversation about your career.");
-    setIsWaitingForUser(true);
+    // Записываем выбор на бэк
+    await logToBackend('button', optionText);
+    
+    const speechResponse = "Great! Let's follow the coach's plan. I'll guide you through a structured conversation about your career.";
+    
+    // Устанавливаем текст для озвучки (но не меняем displayText, если не нужно)
+    setSpeechText(speechResponse);
+    
+    // Озвучиваем ответ
+    await speak(speechResponse);
   };
 
   const handleOption2 = async () => {
-    if (isSpeaking || !isWaitingForUser) return;
+    // Кнопки всегда активны, независимо от записи
+    const optionText = "Discuss your topic or document";
     
-    setIsWaitingForUser(false);
-    await speak("Perfect! Let's discuss your topic or document. What would you like to talk about?");
-    setIsWaitingForUser(true);
+    // Записываем выбор на бэк
+    await logToBackend('button', optionText);
+    
+    const speechResponse = "Perfect! Let's discuss your topic or document. What would you like to talk about?";
+    
+    // Устанавливаем текст для озвучки (но не меняем displayText, если не нужно)
+    setSpeechText(speechResponse);
+    
+    // Озвучиваем ответ
+    await speak(speechResponse);
   };
 
   const renderOnboardingContent = () => {
@@ -538,13 +666,21 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
                 {COACH_PHRASES.onboarding.step3}
               </Text>
               {isWaitingForUser && (
-                <MicButtons
-                  theme={theme}
-                  isMuted={false}
-                  onToggleMute={handleToggleMute}
-                  onMicSelect={handleMicSelect}
-                  onSoundLevel={handleSoundLevel}
-                />
+                <TouchableOpacity
+                  onPress={handleStep3}
+                  disabled={isSpeaking}
+                  style={[
+                    styles.button,
+                    { 
+                      backgroundColor: theme.primary,
+                      opacity: isSpeaking ? 0.5 : 1,
+                    }
+                  ]}
+                >
+                  <Text variant="buttonLarge" style={{ color: theme.primaryContrast }}>
+                    Turn on the mic
+                  </Text>
+                </TouchableOpacity>
               )}
             </Stack>
           </Container>
@@ -560,15 +696,6 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
     return (
       <Container>
         <Stack gap={theme.spacing['2xl']} align="center">
-          {/* Показываем распознанный текст, если есть */}
-          {recognizedText && (
-            <Section marginTop="none">
-              <Text variant="caption" align="center" style={{ maxWidth: '90%', fontStyle: 'italic', color: theme.textSecondary }}>
-                You said: "{recognizedText}"
-              </Text>
-            </Section>
-          )}
-
           {/* Показываем статус обработки */}
           {isProcessingLLM && (
             <Section marginTop="none">
@@ -578,17 +705,12 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
             </Section>
           )}
 
-          {/* Показываем текст только после озвучивания */}
-          {isWaitingForUser && !isRecording && (
+          {/* Показываем текст для отображения (отображается сразу, до озвучки) */}
+          {displayText && (
             <Section marginTop="none">
-              <Stack gap={theme.spacing.base} align="center">
-                <Text variant="bodyLarge" align="center" style={{ maxWidth: '90%' }}>
-                  {COACH_PHRASES.main.welcome}
-                </Text>
-                <Text variant="bodyLarge" align="center" style={{ maxWidth: '90%' }}>
-                  {COACH_PHRASES.main.chooseOption}
-                </Text>
-              </Stack>
+              <Text variant="bodyLarge" align="center" style={{ maxWidth: '90%' }}>
+                {displayText}
+              </Text>
             </Section>
           )}
 
@@ -601,43 +723,38 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
             </Section>
           )}
           
+          {/* Кнопки опций всегда активны, независимо от записи */}
           <Section marginTop="none">
-            {isWaitingForUser && !isRecording && (
-              <Stack gap={theme.spacing.base} align="stretch">
-                <TouchableOpacity
-                  onPress={handleOption1}
-                  disabled={isSpeaking || isProcessingLLM}
-                  style={[
-                    styles.optionButton,
-                    { 
-                      backgroundColor: theme.surface,
-                      borderColor: theme.border,
-                      opacity: (isSpeaking || isProcessingLLM) ? 0.5 : 1,
-                    }
-                  ]}
-                >
-                  <Text variant="body" align="center">
-                    {COACH_PHRASES.main.option1}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handleOption2}
-                  disabled={isSpeaking || isProcessingLLM}
-                  style={[
-                    styles.optionButton,
-                    { 
-                      backgroundColor: theme.surface,
-                      borderColor: theme.border,
-                      opacity: (isSpeaking || isProcessingLLM) ? 0.5 : 1,
-                    }
-                  ]}
-                >
-                  <Text variant="body" align="center">
-                    {COACH_PHRASES.main.option2}
-                  </Text>
-                </TouchableOpacity>
-              </Stack>
-            )}
+            <Stack gap={theme.spacing.base} align="stretch">
+              <TouchableOpacity
+                onPress={handleOption1}
+                style={[
+                  styles.optionButton,
+                  { 
+                    backgroundColor: theme.surface,
+                    borderColor: theme.border,
+                  }
+                ]}
+              >
+                <Text variant="body" align="center">
+                  {COACH_PHRASES.main.option1}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleOption2}
+                style={[
+                  styles.optionButton,
+                  { 
+                    backgroundColor: theme.surface,
+                    borderColor: theme.border,
+                  }
+                ]}
+              >
+                <Text variant="body" align="center">
+                  {COACH_PHRASES.main.option2}
+                </Text>
+              </TouchableOpacity>
+            </Stack>
           </Section>
 
           <Section marginTop="none">
