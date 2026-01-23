@@ -1,96 +1,106 @@
-<<<<<<< HEAD
-# Continuum Career Coach - Мобильный прототип
+# Continuum Career Coach - Mobile Prototype
 
-Мобильное приложение-прототип для голосового карьерного коуча на iOS и Android.
+Mobile app prototype for a voice-first career coach on iOS and Android.
 
-## 🎯 Концепция
+## 🎯 Concept
 
-Voice-first карьерный коуч для tech-профессионалов (SWE, DevOps, Data, Product). Приложение помогает пользователям думать вслух о карьерном направлении и стратегии.
+Voice-first career coach for tech professionals (SWE, DevOps, Data, Product). The app helps users think out loud about career direction and strategy.
 
-## 🚀 Технологии
+## 🚀 Technologies
 
-- **React Native** + **Expo** - кроссплатформенная разработка
-- **TypeScript** - типизация
-- **React Navigation** - навигация
-- **React Native Reanimated** - анимации
-- **Expo AV** - работа с аудио
-- **Expo Speech** - синтез речи
-- Темная и светлая темы (автоматически по настройкам устройства)
+- **React Native** + **Expo** - cross-platform development
+- **TypeScript** - type safety
+- **React Navigation** - navigation
+- **React Native Reanimated** - animations
+- **Expo AV** - audio handling
+- **Expo Speech** - speech synthesis
+- Dark and light themes (automatically based on device settings)
 
-## 🎨 Дизайн
+## 🎨 Design
 
 - **Primary accent**: #1F7EB9 (blue)
-- Высокий контраст, удобный для глаз
-- Спокойный, технический, профессиональный стиль
-- Поддержка темной и светлой темы
+- High contrast, eye-friendly
+- Calm, technical, professional style
+- Dark and light theme support
+- Unified spacing system (4pt grid)
+- Typography system based on iOS HIG and Material Design
 
-## 📱 Экраны
+## 📱 Screens
 
-1. **Talk Screen** - главный экран с облаком (cloud)
-   - Онбординг (3 шага)
-   - Интерактивное облако с анимациями
-   - Кнопки управления микрофоном
+1. **Talk Screen** - main screen with cloud
+   - Onboarding (3 steps)
+   - Interactive cloud with animations
+   - Microphone control buttons
 
-2. **Side Drawer** - боковое меню
+2. **Side Drawer** - side menu
    - Session Notes
    - Coach's Internal Notes
    - Account & Support
 
-3. **Session Notes** - редактируемый документ
-   - Поиск по заметкам
-   - Фильтры по хештегам
+3. **Session Notes** - editable document
+   - Search through notes
+   - Hashtag filters
 
-4. **Coach's Internal Notes** - заметки коуча (read-only)
+4. **Coach's Internal Notes** - coach's notes (read-only)
 
-5. **Account & Support** - настройки и поддержка
+5. **Account & Support** - settings and support
 
-## 🛠 Установка и запуск
+## 🛠 Installation and Running
 
-1. Установите зависимости:
+1. Install dependencies:
 ```bash
 npm install
 ```
 
-2. Запустите приложение:
+2. Run the application:
 ```bash
 npm start
 ```
 
-3. Выберите платформу:
-   - Нажмите `i` для iOS симулятора
-   - Нажмите `a` для Android эмулятора
-   - Отсканируйте QR код в Expo Go приложении на телефоне
+3. Choose platform:
+   - Press `i` for iOS simulator
+   - Press `a` for Android emulator
+   - Scan QR code in Expo Go app on your phone
+   - For web: `npm run web` or use `start-web.ps1`
 
-## 📁 Структура проекта
+## 📁 Project Structure
 
 ```
 ├── src/
-│   ├── components/      # UI компоненты (Cloud, MicButtons, SideDrawer)
-│   ├── screens/        # Экраны приложения
-│   ├── services/       # Эмуляция голосового взаимодействия
-│   └── theme/          # Система тем
-├── App.tsx             # Главный компонент с навигацией
+│   ├── components/      # UI components (Cloud, MicButtons, SideDrawer)
+│   │   ├── icons/       # Icon components (Heroicons Solid)
+│   │   ├── layout/      # Layout components (Container, Section, Stack)
+│   │   └── typography/  # Typography components
+│   ├── screens/         # App screens
+│   ├── services/        # Voice interaction emulation
+│   └── theme/           # Theme system (colors, typography, spacing)
+├── App.tsx              # Main component with navigation
 └── package.json
 ```
 
-## ✨ Особенности
+## ✨ Features
 
-- **Облако (Cloud)**: 
-  - Светится и меняет цвета как эквалайзер, когда коуч говорит
-  - Можно перетаскивать, когда коуч не говорит (для фиджетинга)
+- **Cloud**: 
+  - Glows and changes colors like an equalizer when coach is speaking
+  - Can be dragged when coach is not speaking (for fidgeting)
+  - Feather-like appearance with color shifting and Siri-like glow effect
   
-- **Голосовое взаимодействие**: 
-  - Эмуляция синтеза речи
-  - Запрос разрешения на микрофон
-  - Визуализация звука
+- **Voice Interaction**: 
+  - Speech synthesis emulation
+  - Microphone permission request
+  - Sound visualization
+  - Volume control and device selection
 
-- **Темы**: 
-  - Автоматическое определение темы устройства
-  - Высокий контраст для удобства чтения
+- **Themes**: 
+  - Automatic device theme detection
+  - High contrast for comfortable reading
+  - Theme toggle in sidebar
 
-## 📝 Примечания
+- **Typography System**:
+  - Based on iOS Human Interface Guidelines and Material Design
+  - Consistent font sizes, line heights, and weights
+  - All text elements use proper typography variants
 
-Это прототип для демонстрации. Все голосовое взаимодействие эмулировано локально.
-=======
-# Continuum_test
->>>>>>> 53023c9c7682966742f0cce14f123454b36f7719
+## 📝 Notes
+
+This is a prototype for demonstration. All voice interaction is emulated locally.
