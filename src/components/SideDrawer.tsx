@@ -10,9 +10,9 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTheme } from '../theme/useTheme';
+import { useTheme, useIsAppleHIG, useAppleHIGTheme, useOldTheme } from '../theme/useTheme';
 import { useThemeContext } from '../theme/ThemeContext';
-import { darkTheme } from '../theme/colors';
+import { isAppleHIGTheme } from '../theme/migration-utils';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../App';
@@ -33,9 +33,42 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
   onNavigate,
 }) => {
   const theme = useTheme();
+  const isAppleHIG = useIsAppleHIG();
   const { themeMode, toggleTheme } = useThemeContext();
   const navigation = useNavigation<SideDrawerNavigationProp>();
-  const isDark = theme.background === darkTheme.background;
+  
+  // Получаем цвета в зависимости от темы
+  let backgroundColor: string;
+  let surfaceElevated: string;
+  let textSecondary: string;
+  let textTertiary: string;
+  let divider: string;
+  let border: string;
+  let primary: string;
+  let isDark: boolean;
+  
+  if (isAppleHIG && isAppleHIGTheme(theme)) {
+    // Новая тема Apple HIG
+    backgroundColor = theme.colors.background;
+    surfaceElevated = theme.colors.surfaceElevated;
+    textSecondary = theme.colors.textSecondary;
+    textTertiary = theme.colors.textTertiary;
+    divider = theme.colors.divider;
+    border = theme.colors.border;
+    primary = theme.colors.primary;
+    isDark = theme.isDark;
+  } else {
+    // Старая тема
+    const oldTheme = useOldTheme();
+    backgroundColor = oldTheme.background;
+    surfaceElevated = oldTheme.surfaceElevated;
+    textSecondary = oldTheme.textSecondary;
+    textTertiary = oldTheme.textTertiary;
+    divider = oldTheme.divider;
+    border = oldTheme.border;
+    primary = oldTheme.primary;
+    isDark = backgroundColor === '#000000' || backgroundColor === '#1C1C1E';
+  }
   
   // Анимация для плавного выезда слева
   const slideAnim = useRef(new Animated.Value(-320)).current; // Начальная позиция слева (вне экрана)
@@ -125,7 +158,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
           style={[
             styles.drawer,
             {
-              backgroundColor: theme.surfaceElevated,
+              backgroundColor: surfaceElevated,
               transform: [{ translateX: slideAnim }],
             },
           ]}
@@ -133,9 +166,9 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
           {Platform.OS === 'web' ? (
             <View style={styles.drawerContent}>
               <View style={styles.header}>
-                <Text variant="h1">Menu</Text>
+                <Text variant="title2">Menu</Text>
                 <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                  <Icon name="XMark" size={24} color={theme.textSecondary} />
+                  <Icon name="XMark" size={24} color={textSecondary} />
                 </TouchableOpacity>
               </View>
               
@@ -146,19 +179,19 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
                     onPress={() => handleItemPress(item.id)}
                     style={[
                       styles.menuItem,
-                      { borderBottomColor: theme.divider },
+                      { borderBottomColor: divider },
                     ]}
                   >
                     <Icon name={item.icon} size={26} style={styles.menuIcon} />
                     <Text variant="body" style={styles.menuLabel}>
                       {item.label}
                     </Text>
-                    <Icon name="ArrowRight" size={22} color={theme.textTertiary} style={styles.menuArrow} />
+                    <Icon name="ArrowRight" size={22} color={textTertiary} style={styles.menuArrow} />
                   </TouchableOpacity>
                 ))}
                 
                 {/* Переключатель темы */}
-                <View style={[styles.themeToggle, { borderTopColor: theme.divider }]}>
+                <View style={[styles.themeToggle, { borderTopColor: divider }]}>
                   <View style={styles.themeToggleContent}>
                     <Icon name={isDark ? 'Moon' : 'Sun'} size={26} style={styles.themeIcon} />
                     <Text variant="body">
@@ -168,9 +201,9 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
                   <Switch
                     value={isDark}
                     onValueChange={toggleTheme}
-                    trackColor={{ false: theme.border, true: theme.primary }}
-                    thumbColor={theme.surfaceElevated}
-                    ios_backgroundColor={theme.border}
+                    trackColor={{ false: border, true: primary }}
+                    thumbColor={surfaceElevated}
+                    ios_backgroundColor={border}
                   />
                 </View>
               </ScrollView>
@@ -181,9 +214,9 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
               edges={['top', 'bottom', 'right']}
             >
               <View style={styles.header}>
-                <Text variant="h1">Menu</Text>
+                <Text variant="title2">Menu</Text>
                 <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                  <Icon name="XMark" size={24} color={theme.textSecondary} />
+                  <Icon name="XMark" size={24} color={textSecondary} />
                 </TouchableOpacity>
               </View>
               
@@ -194,19 +227,19 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
                     onPress={() => handleItemPress(item.id)}
                     style={[
                       styles.menuItem,
-                      { borderBottomColor: theme.divider },
+                      { borderBottomColor: divider },
                     ]}
                   >
                     <Icon name={item.icon} size={26} style={styles.menuIcon} />
                     <Text variant="body" style={styles.menuLabel}>
                       {item.label}
                     </Text>
-                    <Icon name="ArrowRight" size={22} color={theme.textTertiary} style={styles.menuArrow} />
+                    <Icon name="ArrowRight" size={22} color={textTertiary} style={styles.menuArrow} />
                   </TouchableOpacity>
                 ))}
                 
                 {/* Переключатель темы */}
-                <View style={[styles.themeToggle, { borderTopColor: theme.divider }]}>
+                <View style={[styles.themeToggle, { borderTopColor: divider }]}>
                   <View style={styles.themeToggleContent}>
                     <Icon name={isDark ? 'Moon' : 'Sun'} size={26} style={styles.themeIcon} />
                     <Text variant="body">
@@ -216,9 +249,9 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
                   <Switch
                     value={isDark}
                     onValueChange={toggleTheme}
-                    trackColor={{ false: theme.border, true: theme.primary }}
-                    thumbColor={theme.surfaceElevated}
-                    ios_backgroundColor={theme.border}
+                    trackColor={{ false: border, true: primary }}
+                    thumbColor={surfaceElevated}
+                    ios_backgroundColor={border}
                   />
                 </View>
               </ScrollView>
@@ -264,9 +297,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 24, // spacing.xl
-    paddingBottom: 20, // spacing.lg
-    borderBottomWidth: 1,
+    paddingHorizontal: 24, // spacing.xl (Apple HIG стандарт)
+    paddingTop: 24, // spacing.xl
+    paddingBottom: 16, // spacing.base (Apple HIG стандарт для разделителей)
+    borderBottomWidth: StyleSheet.hairlineWidth, // Apple HIG стандарт для разделителей
   },
   // Типографика применяется через Text компонент
   closeButton: {
@@ -278,9 +312,10 @@ const styles = StyleSheet.create({
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 20, // spacing.lg
-    paddingVertical: 22, // spacing.lg + spacing.xs
-    borderBottomWidth: 1,
+    paddingHorizontal: 24, // spacing.xl (Apple HIG стандарт)
+    paddingVertical: 16, // spacing.base (Apple HIG стандарт)
+    borderBottomWidth: StyleSheet.hairlineWidth, // Apple HIG стандарт для разделителей
+    minHeight: 48, // Apple HIG минимальный touch target
   },
   menuIcon: {
     marginRight: 18, // spacing.lg - spacing.xs
@@ -295,10 +330,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 24, // spacing.xl
-    paddingVertical: 22, // spacing.lg + spacing.xs
-    borderTopWidth: 1,
-    marginTop: 12, // spacing.md
+    paddingHorizontal: 24, // spacing.xl (Apple HIG стандарт)
+    paddingVertical: 16, // spacing.base (Apple HIG стандарт)
+    borderTopWidth: StyleSheet.hairlineWidth, // Apple HIG стандарт для разделителей
+    marginTop: 8, // spacing.sm (Apple HIG стандарт)
+    minHeight: 48, // Apple HIG минимальный touch target
   },
   themeToggleContent: {
     flexDirection: 'row',

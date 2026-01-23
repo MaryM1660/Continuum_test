@@ -9,7 +9,8 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { useTheme } from '../theme/useTheme';
+import { useTheme, useIsAppleHIG, useAppleHIGTheme, useOldTheme } from '../theme/useTheme';
+import { isAppleHIGTheme } from '../theme/migration-utils';
 import { RootStackParamList } from '../../App';
 import { ScreenContainer, Container, Stack } from '../components/layout';
 import { Text } from '../components/typography';
@@ -19,7 +20,47 @@ type SessionNotesNavigationProp = StackNavigationProp<RootStackParamList, 'Sessi
 
 export const SessionNotesScreen: React.FC = () => {
   const theme = useTheme();
+  const isAppleHIG = useIsAppleHIG();
   const navigation = useNavigation<SessionNotesNavigationProp>();
+  
+  // Получаем значения в зависимости от темы
+  let spacing: any;
+  let primary: string;
+  let divider: string;
+  let surface: string;
+  let text: string;
+  let border: string;
+  let textTertiary: string;
+  let primaryContrast: string;
+  let background: string;
+  let bodyTypography: any;
+  
+  if (isAppleHIG && isAppleHIGTheme(theme)) {
+    // Новая тема Apple HIG
+    spacing = theme.spacing;
+    primary = theme.colors.primary;
+    divider = theme.colors.divider;
+    surface = theme.colors.surface;
+    text = theme.colors.text;
+    border = theme.colors.border;
+    textTertiary = theme.colors.textTertiary;
+    primaryContrast = '#FFFFFF'; // Белый текст на primary фоне
+    background = theme.colors.background;
+    bodyTypography = theme.typography.body;
+  } else {
+    // Старая тема
+    const oldTheme = useOldTheme();
+    spacing = oldTheme.spacing;
+    primary = oldTheme.primary;
+    divider = oldTheme.divider;
+    surface = oldTheme.surface;
+    text = oldTheme.text;
+    border = oldTheme.border;
+    textTertiary = oldTheme.textTertiary;
+    primaryContrast = oldTheme.primaryContrast;
+    background = oldTheme.background;
+    bodyTypography = oldTheme.typography.body;
+  }
   const [notes, setNotes] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedHashtags, setSelectedHashtags] = useState<string[]>([]);
@@ -36,36 +77,36 @@ export const SessionNotesScreen: React.FC = () => {
 
   return (
     <ScreenContainer>
-      <StatusBar style={theme.background === '#FFFFFF' ? 'dark' : 'light'} />
+      <StatusBar style={background === '#FFFFFF' ? 'dark' : 'light'} />
       
       {/* Header */}
       <Container paddingVertical>
-        <Stack direction="horizontal" align="center" gap={theme.spacing.lg - theme.spacing.xs}>
+        <Stack direction="horizontal" align="center" gap={spacing.lg - spacing.xs}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Icon name="ArrowLeft" size={28} color={theme.primary} />
+            <Icon name="ArrowLeft" size={28} color={primary} />
           </TouchableOpacity>
           <Text variant="h1">Session Notes</Text>
         </Stack>
       </Container>
-      <View style={[styles.headerBorder, { borderBottomColor: theme.divider }]} />
+      <View style={[styles.headerBorder, { borderBottomColor: divider }]} />
 
       {/* Поиск */}
       <Container paddingVertical paddingHorizontal={false}>
-        <View style={[styles.searchWrapper, { backgroundColor: theme.surface }]}>
+        <View style={[styles.searchWrapper, { backgroundColor: surface }]}>
           <TextInput
             style={[
-              theme.typography.body,
+              bodyTypography,
               styles.searchInput,
-              { color: theme.text, borderColor: theme.border, backgroundColor: theme.background }
+              { color: text, borderColor: border, backgroundColor: background }
             ]}
             placeholder="Search notes..."
-            placeholderTextColor={theme.textTertiary}
+            placeholderTextColor={textTertiary}
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
       </Container>
-      <View style={[styles.headerBorder, { borderBottomColor: theme.divider }]} />
+      <View style={[styles.headerBorder, { borderBottomColor: divider }]} />
 
       {/* Хештеги фильтры */}
       <Container paddingVertical paddingHorizontal={false}>
@@ -74,7 +115,7 @@ export const SessionNotesScreen: React.FC = () => {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.hashtagsContent}
         >
-          <Stack direction="horizontal" gap={theme.spacing.sm}>
+          <Stack direction="horizontal" gap={spacing.sm}>
             {hashtags.map((hashtag) => {
               const isSelected = selectedHashtags.includes(hashtag);
               return (
@@ -84,14 +125,14 @@ export const SessionNotesScreen: React.FC = () => {
                   style={[
                     styles.hashtag,
                     {
-                      backgroundColor: isSelected ? theme.primary : theme.surface,
-                      borderColor: theme.border,
+                      backgroundColor: isSelected ? primary : surface,
+                      borderColor: border,
                     },
                   ]}
                 >
                   <Text
                     variant="bodySmall"
-                    style={{ color: isSelected ? theme.primaryContrast : theme.text }}
+                    style={{ color: isSelected ? primaryContrast : text }}
                   >
                     {hashtag}
                   </Text>
@@ -101,21 +142,21 @@ export const SessionNotesScreen: React.FC = () => {
           </Stack>
         </ScrollView>
       </Container>
-      <View style={[styles.headerBorder, { borderBottomColor: theme.divider }]} />
+      <View style={[styles.headerBorder, { borderBottomColor: divider }]} />
 
       {/* Редактор заметок */}
       <Container padding paddingHorizontal={false} style={styles.notesContainer}>
         <TextInput
           style={[
-            theme.typography.body,
+            bodyTypography,
             styles.notesInput,
             {
-              color: theme.text,
-              backgroundColor: theme.surface,
+              color: text,
+              backgroundColor: surface,
             },
           ]}
           placeholder="Start writing your notes here..."
-          placeholderTextColor={theme.textTertiary}
+          placeholderTextColor={textTertiary}
           value={notes}
           onChangeText={setNotes}
           multiline

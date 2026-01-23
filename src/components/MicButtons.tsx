@@ -1,25 +1,39 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Theme } from '../theme/colors';
-import { useTheme } from '../theme/useTheme';
+import { View, StyleSheet } from 'react-native';
+import { useTheme, useIsAppleHIG, useAppleHIGTheme, useOldTheme } from '../theme/useTheme';
+import { isAppleHIGTheme } from '../theme/migration-utils';
 import { Icon } from './icons';
 import { LiquidGlassButton } from './LiquidGlassButton';
 
 interface MicButtonsProps {
-  theme: Theme;
   isMuted: boolean;
   onToggleMute: () => void;
 }
 
 export const MicButtons: React.FC<MicButtonsProps> = ({
-  theme,
   isMuted,
   onToggleMute,
 }) => {
-  const themeContext = useTheme();
-  const spacing = themeContext.spacing;
-  const spacingPatterns = themeContext.spacingPatterns;
+  const theme = useTheme();
+  const isAppleHIG = useIsAppleHIG();
+  
+  // Получаем spacing в зависимости от темы
+  let spacing: any;
+  if (isAppleHIG && isAppleHIGTheme(theme)) {
+    spacing = theme.spacing;
+  } else {
+    const oldTheme = useOldTheme();
+    spacing = oldTheme.spacing;
+  }
+  
+  // Получаем primary цвет в зависимости от темы
+  let primaryColor: string;
+  if (isAppleHIG && isAppleHIGTheme(theme)) {
+    primaryColor = theme.colors.primary;
+  } else {
+    const oldTheme = useOldTheme();
+    primaryColor = oldTheme.primary;
+  }
 
   return (
     <View style={[styles.container, { paddingVertical: spacing.lg }]}>
@@ -30,21 +44,20 @@ export const MicButtons: React.FC<MicButtonsProps> = ({
           onToggleMute();
         }}
         variant="primary"
-        theme={theme}
         style={styles.mainButton}
         borderRadius={44}
       >
         <View style={{ justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
           {isMuted ? (
             <View style={{ position: 'relative', width: 36, height: 36, justifyContent: 'center', alignItems: 'center' }} pointerEvents="none">
-              <Icon name="Microphone" size={36} color={theme.primary} />
+              <Icon name="Microphone" size={36} color={primaryColor} />
               <View
                 pointerEvents="none"
-                style={{ position: 'absolute', width: 40, height: 2, backgroundColor: theme.primary, transform: [{ rotate: '45deg' }] }}
+                style={{ position: 'absolute', width: 40, height: 2, backgroundColor: primaryColor, transform: [{ rotate: '45deg' }] }}
               />
             </View>
           ) : (
-            <Icon name="Microphone" size={36} color={theme.primary} />
+            <Icon name="Microphone" size={36} color={primaryColor} />
           )}
         </View>
       </LiquidGlassButton>

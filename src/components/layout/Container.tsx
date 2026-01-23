@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
-import { useTheme } from '../../theme/useTheme';
+import { useTheme, useIsAppleHIG, useAppleHIGTheme, useOldTheme } from '../../theme/useTheme';
+import { isAppleHIGTheme } from '../../theme/migration-utils';
 
 interface ContainerProps {
   children: React.ReactNode;
@@ -13,6 +14,7 @@ interface ContainerProps {
 /**
  * Основной контейнер с отступами
  * Используется для обертки контента на экранах
+ * Поддерживает как старую, так и новую тему Apple HIG
  */
 export const Container: React.FC<ContainerProps> = ({
   children,
@@ -22,7 +24,22 @@ export const Container: React.FC<ContainerProps> = ({
   paddingVertical,
 }) => {
   const theme = useTheme();
-  const patterns = theme.spacingPatterns;
+  const isAppleHIG = useIsAppleHIG();
+  
+  // Получаем spacing patterns в зависимости от темы
+  let containerPaddingHorizontal: number;
+  let containerPaddingVertical: number;
+  
+  if (isAppleHIG && isAppleHIGTheme(theme)) {
+    // Новая тема Apple HIG
+    containerPaddingHorizontal = theme.spacingPatterns.container.paddingHorizontal;
+    containerPaddingVertical = theme.spacingPatterns.container.paddingVertical;
+  } else {
+    // Старая тема
+    const oldTheme = useOldTheme();
+    containerPaddingHorizontal = oldTheme.spacingPatterns.containerPaddingHorizontal;
+    containerPaddingVertical = oldTheme.spacingPatterns.containerPaddingVertical;
+  }
 
   // Определяем paddingHorizontal
   let horizontalPadding: number = 0;
@@ -30,12 +47,12 @@ export const Container: React.FC<ContainerProps> = ({
     horizontalPadding = typeof paddingHorizontal === 'number' 
       ? paddingHorizontal 
       : paddingHorizontal 
-        ? patterns.containerPaddingHorizontal 
+        ? containerPaddingHorizontal 
         : 0;
   } else if (padding !== false) {
     horizontalPadding = typeof padding === 'number' 
       ? padding 
-      : patterns.containerPaddingHorizontal;
+      : containerPaddingHorizontal;
   }
 
   // Определяем paddingVertical
@@ -44,12 +61,12 @@ export const Container: React.FC<ContainerProps> = ({
     verticalPadding = typeof paddingVertical === 'number' 
       ? paddingVertical 
       : paddingVertical 
-        ? patterns.containerPaddingVertical 
+        ? containerPaddingVertical 
         : 0;
   } else if (padding !== false) {
     verticalPadding = typeof padding === 'number' 
       ? padding 
-      : patterns.containerPaddingVertical;
+      : containerPaddingVertical;
   }
 
   const containerStyle: ViewStyle = {

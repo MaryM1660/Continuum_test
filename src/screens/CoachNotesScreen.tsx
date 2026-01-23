@@ -8,7 +8,8 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { useTheme } from '../theme/useTheme';
+import { useTheme, useIsAppleHIG, useAppleHIGTheme, useOldTheme } from '../theme/useTheme';
+import { isAppleHIGTheme } from '../theme/migration-utils';
 import { RootStackParamList } from '../../App';
 import { ScreenContainer, Container, Stack, Section } from '../components/layout';
 import { Text } from '../components/typography';
@@ -18,7 +19,33 @@ type CoachNotesNavigationProp = StackNavigationProp<RootStackParamList, 'CoachNo
 
 export const CoachNotesScreen: React.FC = () => {
   const theme = useTheme();
+  const isAppleHIG = useIsAppleHIG();
   const navigation = useNavigation<CoachNotesNavigationProp>();
+  
+  // Получаем значения в зависимости от темы
+  let spacing: any;
+  let primary: string;
+  let divider: string;
+  let surface: string;
+  let border: string;
+  let background: string;
+  
+  if (isAppleHIG && isAppleHIGTheme(theme)) {
+    spacing = theme.spacing;
+    primary = theme.colors.primary;
+    divider = theme.colors.divider;
+    surface = theme.colors.surface;
+    border = theme.colors.border;
+    background = theme.colors.background;
+  } else {
+    const oldTheme = useOldTheme();
+    spacing = oldTheme.spacing;
+    primary = oldTheme.primary;
+    divider = oldTheme.divider;
+    surface = oldTheme.surface;
+    border = oldTheme.border;
+    background = oldTheme.background;
+  }
 
   // Эмулированные заметки коуча
   const coachNotes = [
@@ -44,15 +71,15 @@ export const CoachNotesScreen: React.FC = () => {
 
   return (
     <ScreenContainer>
-      <StatusBar style={theme.background === '#FFFFFF' ? 'dark' : 'light'} />
+      <StatusBar style={background === '#FFFFFF' ? 'dark' : 'light'} />
       
       {/* Header */}
       <Container paddingVertical>
-        <Stack direction="horizontal" align="center" gap={theme.spacing.lg - theme.spacing.xs}>
+        <Stack direction="horizontal" align="center" gap={spacing.lg - spacing.xs}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Icon name="ArrowLeft" size={28} color={theme.primary} />
+            <Icon name="ArrowLeft" size={28} color={primary} />
           </TouchableOpacity>
-          <Stack gap={theme.spacing.xs}>
+          <Stack gap={spacing.xs}>
             <Text variant="h2">
               Coach's Internal Notes
             </Text>
@@ -62,25 +89,25 @@ export const CoachNotesScreen: React.FC = () => {
           </Stack>
         </Stack>
       </Container>
-      <View style={[styles.headerBorder, { borderBottomColor: theme.divider }]} />
+      <View style={[styles.headerBorder, { borderBottomColor: divider }]} />
 
       {/* Content */}
       <ScrollView style={styles.content}>
         <Container padding>
-          <Stack gap={theme.spacing.base}>
+          <Stack gap={spacing.base}>
             {coachNotes.map((note) => (
               <View
                 key={note.id}
                 style={[
                   styles.noteCard,
                   {
-                    backgroundColor: theme.surface,
-                    borderColor: theme.border,
+                    backgroundColor: surface,
+                    borderColor: border,
                   },
                 ]}
               >
-                <Stack gap={theme.spacing.md}>
-                  <Stack gap={theme.spacing.xs}>
+                <Stack gap={spacing.md}>
+                  <Stack gap={spacing.xs}>
                     <Text variant="h4">
                       {note.title}
                     </Text>

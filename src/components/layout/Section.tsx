@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
-import { useTheme } from '../../theme/useTheme';
+import { useTheme, useIsAppleHIG, useAppleHIGTheme, useOldTheme } from '../../theme/useTheme';
+import { isAppleHIGTheme } from '../../theme/migration-utils';
 
 interface SectionProps {
   children: React.ReactNode;
@@ -13,6 +14,7 @@ interface SectionProps {
 /**
  * Секция контента с вертикальными отступами
  * Используется для группировки связанных элементов
+ * Поддерживает как старую, так и новую тему Apple HIG
  */
 export const Section: React.FC<SectionProps> = ({
   children,
@@ -22,14 +24,25 @@ export const Section: React.FC<SectionProps> = ({
   marginBottom,
 }) => {
   const theme = useTheme();
-  const patterns = theme.spacingPatterns;
+  const isAppleHIG = useIsAppleHIG();
+  
+  // Получаем spacing в зависимости от темы
+  let defaultSectionGap: number;
+  if (isAppleHIG && isAppleHIGTheme(theme)) {
+    // Новая тема Apple HIG
+    defaultSectionGap = theme.spacing['2xl']; // 32px (стандартный отступ для секций)
+  } else {
+    // Старая тема
+    const oldTheme = useOldTheme();
+    defaultSectionGap = oldTheme.spacingPatterns.sectionGap;
+  }
 
   const sectionStyle: ViewStyle = {
     marginTop: marginTop === 'none' 
       ? 0 
       : marginTop !== undefined 
         ? marginTop 
-        : patterns.sectionGap,
+        : defaultSectionGap,
     marginBottom: marginBottom ?? 0,
   };
 

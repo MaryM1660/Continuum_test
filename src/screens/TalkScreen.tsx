@@ -9,7 +9,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MicButtons } from '../components/MicButtons';
-import { useTheme } from '../theme/useTheme';
+import { useTheme, useIsAppleHIG, useAppleHIGTheme, useOldTheme } from '../theme/useTheme';
+import { isAppleHIGTheme } from '../theme/migration-utils';
 import { Audio } from 'expo-av';
 import { Platform } from 'react-native';
 import { COACH_PHRASES, speakText } from '../services/mockVoice';
@@ -32,6 +33,35 @@ type OnboardingStep = 1 | 2 | 3 | 'complete';
 
 export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
   const theme = useTheme();
+  const isAppleHIG = useIsAppleHIG();
+  
+  // Получаем значения в зависимости от темы
+  let spacing: any;
+  let textSecondary: string;
+  let textTertiary: string;
+  let background: string;
+  let text: string;
+  let primary: string;
+  
+  if (isAppleHIG && isAppleHIGTheme(theme)) {
+    // Новая тема Apple HIG
+    spacing = theme.spacing;
+    textSecondary = theme.colors.textSecondary;
+    textTertiary = theme.colors.textTertiary;
+    background = theme.colors.background;
+    text = theme.colors.text;
+    primary = theme.colors.primary;
+  } else {
+    // Старая тема
+    const oldTheme = useOldTheme();
+    spacing = oldTheme.spacing;
+    textSecondary = oldTheme.textSecondary;
+    textTertiary = oldTheme.textTertiary;
+    background = oldTheme.background;
+    text = oldTheme.text;
+    primary = oldTheme.primary;
+  }
+  
   // navigation и onOpenDrawer могут использоваться в будущем для навигации
   const [onboardingStep, setOnboardingStep] = useState<OnboardingStep>(1);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -644,7 +674,7 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
       case 1:
         return (
           <Container>
-            <Stack gap={theme.spacing['2xl']} align="center">
+            <Stack gap={spacing['2xl']} align="center">
               <Text variant="bodyLarge" align="center" style={{ maxWidth: '90%' }}>
                 {COACH_PHRASES.onboarding.step1}
               </Text>
@@ -653,7 +683,6 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
                   onPress={handleStep1}
                   disabled={isSpeaking}
                   variant="primary"
-                  theme={theme}
                   textVariant="buttonLarge"
                 >
                   Hi
@@ -665,7 +694,7 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
       case 2:
         return (
           <Container>
-            <Stack gap={theme.spacing['2xl']} align="center">
+            <Stack gap={spacing['2xl']} align="center">
               <Text variant="bodyLarge" align="center" style={{ maxWidth: '90%' }}>
                 {COACH_PHRASES.onboarding.step2}
               </Text>
@@ -674,7 +703,6 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
                   onPress={handleStep2}
                   disabled={isSpeaking}
                   variant="primary"
-                  theme={theme}
                   textVariant="buttonLarge"
                 >
                   Ok
@@ -686,7 +714,7 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
       case 3:
         return (
           <Container>
-            <Stack gap={theme.spacing['2xl']} align="center">
+            <Stack gap={spacing['2xl']} align="center">
               <Text variant="bodyLarge" align="center" style={{ maxWidth: '90%' }}>
                 {COACH_PHRASES.onboarding.step3}
               </Text>
@@ -695,7 +723,6 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
                   onPress={handleStep3}
                   disabled={isSpeaking}
                   variant="primary"
-                  theme={theme}
                   textVariant="buttonLarge"
                 >
                   Turn on the mic
@@ -717,7 +744,7 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
         <Stack gap={theme.spacing['2xl']} align="center">
           {isProcessingLLM ? (
             <Section marginTop="none">
-              <Text variant="caption" align="center" style={{ maxWidth: '90%', color: theme.textSecondary }}>
+              <Text variant="caption" align="center" style={{ maxWidth: '90%', color: textSecondary }}>
                 Thinking...
               </Text>
             </Section>
@@ -730,11 +757,10 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
             </Section>
           ) : null}
           <Section marginTop="none">
-            <Stack gap={theme.spacing.base} align="stretch">
+            <Stack gap={spacing.base} align="stretch">
               <LiquidGlassButton
                 onPress={handleOption1}
                 variant="secondary"
-                theme={theme}
                 textVariant="body"
               >
                 {COACH_PHRASES.main.option1}
@@ -742,7 +768,6 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
               <LiquidGlassButton
                 onPress={handleOption2}
                 variant="secondary"
-                theme={theme}
                 textVariant="body"
               >
                 {COACH_PHRASES.main.option2}
@@ -751,17 +776,16 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
           </Section>
           <Section marginTop="none">
             <MicButtons
-              theme={theme}
               isMuted={isMuted}
               onToggleMute={handleToggleMute}
             />
             {recognizedText ? (
-              <View style={{ marginTop: theme.spacing.sm, paddingHorizontal: theme.spacing.base }}>
+              <View style={{ marginTop: spacing.sm, paddingHorizontal: spacing.base }}>
                 <Text 
                   variant="caption" 
                   style={{ 
                     fontSize: 10, 
-                    color: theme.textTertiary,
+                    color: textTertiary,
                     textAlign: 'center',
                     fontStyle: 'italic',
                   }}
@@ -778,23 +802,22 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
 
   return (
     <ScreenContainer>
-      <StatusBar style={theme.background === '#FFFFFF' ? 'dark' : 'light'} />
+      <StatusBar style={background === '#FFFFFF' ? 'dark' : 'light'} />
       {onboardingStep === 'complete' && (
         <LiquidGlassButton
           onPress={() => onOpenDrawer?.()}
           variant="secondary"
-          theme={theme}
           style={styles.menuButton}
           borderRadius={24}
         >
-          <Icon name="Bars3" size={28} color={theme.text} />
+          <Icon name="Bars3" size={28} color={text} />
         </LiquidGlassButton>
       )}
       <View
         pointerEvents="none"
         style={styles.circleContainer}
       >
-        <View style={[styles.blueCircle, { backgroundColor: theme.primary }]} />
+        <View style={[styles.blueCircle, { backgroundColor: primary }]} />
       </View>
       <View style={styles.contentWrapper}>
         {onboardingStep !== 'complete' ? renderOnboardingContent() : renderMainContent()}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle, SafeAreaView } from 'react-native';
-import { useTheme } from '../../theme/useTheme';
+import { useTheme, useIsAppleHIG, useAppleHIGTheme, useOldTheme } from '../../theme/useTheme';
+import { isAppleHIGTheme } from '../../theme/migration-utils';
 
 interface ScreenContainerProps {
   children: React.ReactNode;
@@ -12,6 +13,7 @@ interface ScreenContainerProps {
 /**
  * Контейнер для экрана с SafeAreaView
  * Используется как корневой контейнер для всех экранов
+ * Поддерживает как старую, так и новую тему Apple HIG
  */
 export const ScreenContainer: React.FC<ScreenContainerProps> = ({
   children,
@@ -20,9 +22,21 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
   edges,
 }) => {
   const theme = useTheme();
+  const isAppleHIG = useIsAppleHIG();
+  
+  // Получаем цвет фона в зависимости от темы
+  let backgroundColor: string;
+  if (isAppleHIG && isAppleHIGTheme(theme)) {
+    // Новая тема Apple HIG
+    backgroundColor = theme.colors.background;
+  } else {
+    // Старая тема
+    const oldTheme = useOldTheme();
+    backgroundColor = oldTheme.background;
+  }
 
   const content = (
-    <View style={[styles.container, { backgroundColor: theme.background }, style]}>
+    <View style={[styles.container, { backgroundColor }, style]}>
       {children}
     </View>
   );
@@ -30,7 +44,7 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
   if (safeArea) {
     return (
       <SafeAreaView 
-        style={[styles.safeArea, { backgroundColor: theme.background }]}
+        style={[styles.safeArea, { backgroundColor }]}
         edges={edges}
       >
         {content}

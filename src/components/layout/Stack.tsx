@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, ViewStyle } from 'react-native';
-import { useTheme } from '../../theme/useTheme';
+import { useTheme, useIsAppleHIG, useAppleHIGTheme, useOldTheme } from '../../theme/useTheme';
+import { isAppleHIGTheme } from '../../theme/migration-utils';
 
 interface StackProps {
   children: React.ReactNode;
@@ -15,6 +16,7 @@ interface StackProps {
 /**
  * Вертикальный или горизонтальный стек с gap между элементами
  * Аналог VStack/HStack из популярных UI библиотек
+ * Поддерживает как старую, так и новую тему Apple HIG
  */
 export const Stack: React.FC<StackProps> = ({
   children,
@@ -26,10 +28,18 @@ export const Stack: React.FC<StackProps> = ({
   flex,
 }) => {
   const theme = useTheme();
-  const spacing = theme.spacing;
-
-  // Определяем gap по умолчанию
-  const defaultGap = gap ?? spacing.base;
+  const isAppleHIG = useIsAppleHIG();
+  
+  // Получаем spacing в зависимости от темы
+  let defaultGap: number;
+  if (isAppleHIG && isAppleHIGTheme(theme)) {
+    // Новая тема Apple HIG
+    defaultGap = gap ?? theme.spacing.base; // 16px
+  } else {
+    // Старая тема
+    const oldTheme = useOldTheme();
+    defaultGap = gap ?? oldTheme.spacing.base;
+  }
 
   const stackStyle: ViewStyle = {
     flexDirection: direction === 'horizontal' ? 'row' : 'column',

@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleProp, ViewStyle, Platform } from 'react-native';
-import { useTheme } from '../../theme/useTheme';
+import { useTheme, useIsAppleHIG, useAppleHIGTheme, useOldTheme } from '../../theme/useTheme';
+import { isAppleHIGTheme } from '../../theme/migration-utils';
 import * as HeroIconsSolid from 'react-native-heroicons/solid';
 
 // Маппинг имен иконок для удобства использования
@@ -60,6 +61,7 @@ export const Icon: React.FC<IconProps> = ({
   style,
 }) => {
   const theme = useTheme();
+  const isAppleHIG = useIsAppleHIG();
   const IconComponent = iconMap[name];
 
   if (!IconComponent) {
@@ -67,7 +69,18 @@ export const Icon: React.FC<IconProps> = ({
     return null;
   }
 
-  const iconColor = color || theme.text;
+  // Получаем цвет текста в зависимости от темы
+  let defaultTextColor: string;
+  if (isAppleHIG && isAppleHIGTheme(theme)) {
+    // Новая тема Apple HIG
+    defaultTextColor = theme.colors.text;
+  } else {
+    // Старая тема
+    const oldTheme = useOldTheme();
+    defaultTextColor = oldTheme.text;
+  }
+
+  const iconColor = color || defaultTextColor;
 
   // Heroicons используют fill="currentColor" в SVG
   // Для веб-версии нужно убедиться, что color передается правильно через style

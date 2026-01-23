@@ -1,7 +1,8 @@
 import React from 'react';
 import { TouchableOpacity, StyleSheet, ViewStyle, View, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Theme } from '../theme/colors';
+import { useTheme, useIsAppleHIG, useAppleHIGTheme, useOldTheme } from '../theme/useTheme';
+import { isAppleHIGTheme } from '../theme/migration-utils';
 import { Text } from './typography';
 
 // Условный импорт BlurView только для native
@@ -20,7 +21,6 @@ interface LiquidGlassButtonProps {
   style?: ViewStyle;
   children: React.ReactNode;
   variant?: 'primary' | 'secondary';
-  theme: Theme;
   textVariant?: 'button' | 'buttonLarge';
   borderRadius?: number;
 }
@@ -31,29 +31,101 @@ export const LiquidGlassButton: React.FC<LiquidGlassButtonProps> = ({
   style,
   children,
   variant = 'primary',
-  theme,
   textVariant = 'button',
   borderRadius = 16,
 }) => {
+  const theme = useTheme();
+  const isAppleHIG = useIsAppleHIG();
   const isPrimary = variant === 'primary';
   
-  // Цвета для liquid glass эффекта согласно официальному гайдлайну Apple HIG
-  // Используем стандартные значения из iOS 17/18
-  const glassColor1 = isPrimary
-    ? 'rgba(255, 255, 255, 0.7)'  // Apple стандарт для primary (более выраженный)
-    : 'rgba(255, 255, 255, 0.6)'; // Apple стандарт для secondary
+  // Получаем параметры Liquid Glass в зависимости от темы
+  let glassColor1: string;
+  let glassColor2: string;
+  let borderColor: string;
+  let borderWidth: number;
+  let blurRadius: string;
+  let textColor: string;
+  let backgroundColor: string;
+  let highlightColor: string;
+  let highlightColorEnd: string;
+  let shadowStyle: any;
+  let blurIntensity: number;
+  let blurTint: 'light' | 'dark';
   
-  const glassColor2 = isPrimary
-    ? 'rgba(255, 255, 255, 0.5)'  // Apple стандарт для primary (градиент)
-    : 'rgba(255, 255, 255, 0.4)';  // Apple стандарт для secondary (градиент)
-
-  // Убираем видимую обводку
-  const borderColor = 'transparent';
-
-  // Цвет текста по гайдлайну: на белом полупрозрачном фоне нужен темный текст для контраста
-  // Primary кнопки: акцентный синий цвет для текста
-  // Secondary кнопки: темный текст
-  const textColor = isPrimary ? theme.primary : theme.text;
+  if (isAppleHIG && isAppleHIGTheme(theme)) {
+    // Новая тема Apple HIG
+    const liquidGlass = theme.materials.liquidGlass;
+    // Для светлой темы используем более высокую opacity для видимости
+    // На темной теме используем стандартные значения
+    let opacity: number;
+    if (theme.isDark) {
+      opacity = isPrimary 
+        ? liquidGlass.backgroundOpacity.primary 
+        : liquidGlass.backgroundOpacity.secondary;
+    } else {
+      // На светлой теме нужна значительно более высокая opacity
+      opacity = isPrimary ? 0.7 : 0.6; // Достаточно высокая для видимости
+    }
+    
+    glassColor1 = theme.isDark 
+      ? `rgba(255, 255, 255, ${opacity + 0.05})`
+      : `rgba(255, 255, 255, ${opacity + 0.1})`;
+    glassColor2 = `rgba(255, 255, 255, ${opacity})`;
+    
+    // Граница: на светлой теме темная, на темной - светлая
+    borderColor = theme.isDark 
+      ? liquidGlass.border.color 
+      : 'rgba(0, 0, 0, 0.15)'; // Темная граница на светлой теме
+    borderWidth = liquidGlass.border.width;
+    blurRadius = liquidGlass.backdropFilter.blur;
+    highlightColor = liquidGlass.highlight.color;
+    highlightColorEnd = liquidGlass.highlight.colorEnd;
+    backgroundColor = `rgba(255, 255, 255, ${opacity})`;
+    blurIntensity = liquidGlass.blurIntensity.light;
+    blurTint = theme.isDark ? 'dark' : 'light';
+    
+    // Цвет текста
+    textColor = isPrimary ? theme.colors.primary : theme.colors.text;
+    
+    // Тени из новой темы
+    const shadow = theme.shadows.patterns.buttonLiquidGlass;
+    shadowStyle = Platform.OS === 'web' 
+      ? { boxShadow: shadow.boxShadow }
+      : {
+          shadowColor: shadow.external.shadowColor,
+          shadowOffset: shadow.external.shadowOffset,
+          shadowOpacity: shadow.external.shadowOpacity,
+          shadowRadius: shadow.external.shadowRadius,
+          elevation: shadow.external.elevation,
+        };
+  } else {
+    // Старая тема (обратная совместимость)
+    const oldTheme = useOldTheme();
+    glassColor1 = isPrimary
+      ? 'rgba(255, 255, 255, 0.7)'
+      : 'rgba(255, 255, 255, 0.6)';
+    glassColor2 = isPrimary
+      ? 'rgba(255, 255, 255, 0.5)'
+      : 'rgba(255, 255, 255, 0.4)';
+    borderColor = 'rgba(255, 255, 255, 0.18)';
+    borderWidth = 1;
+    blurRadius = '20px';
+    highlightColor = 'rgba(255, 255, 255, 0.3)';
+    highlightColorEnd = 'rgba(255, 255, 255, 0)';
+    backgroundColor = isPrimary
+      ? 'rgba(255, 255, 255, 0.7)'
+      : 'rgba(255, 255, 255, 0.6)';
+    blurIntensity = 20;
+    blurTint = oldTheme.background === '#FFFFFF' ? 'light' : 'dark';
+    textColor = isPrimary ? oldTheme.primary : oldTheme.text;
+    shadowStyle = {
+      shadowColor: '#000',
+      shadowOffset: { width: 3, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 10,
+      elevation: 8,
+    };
+  }
 
   // Для web используем CSS backdrop-filter
   if (Platform.OS === 'web') {
@@ -69,16 +141,13 @@ export const LiquidGlassButton: React.FC<LiquidGlassButtonProps> = ({
             styles.glassContainer,
             {
               borderRadius,
-              borderColor: 'rgba(255, 255, 255, 0.18)',  // Apple HIG стандарт
-              borderWidth: 1,
+              borderColor,
+              borderWidth,
               opacity: disabled ? 0.5 : 1,
-              backgroundColor: isPrimary
-                ? 'rgba(255, 255, 255, 0.7)'  // Apple HIG стандарт
-                : 'rgba(255, 255, 255, 0.6)', // Apple HIG стандарт
-              backdropFilter: 'blur(20px)',  // Apple HIG стандарт: blur(20px)
-              WebkitBackdropFilter: 'blur(20px)',
-              // Тени по официальному гайдлайну Apple HIG
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)', // Apple HIG стандарт
+              backgroundColor,
+              backdropFilter: `blur(${blurRadius}) saturate(180%)`,
+              WebkitBackdropFilter: `blur(${blurRadius}) saturate(180%)`,
+              ...(Platform.OS === 'web' ? shadowStyle : {}),
             } as any,
           ]}
         >
@@ -88,9 +157,9 @@ export const LiquidGlassButton: React.FC<LiquidGlassButtonProps> = ({
             end={{ x: 1, y: 1 }}
             style={[StyleSheet.absoluteFill, { borderRadius }]}
           />
-          {/* Верхний блик - более мягкий согласно гайдлайну */}
+          {/* Верхний блик */}
           <LinearGradient
-            colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0)']}
+            colors={[highlightColor, highlightColorEnd]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 0.4 }}
             style={[styles.highlight, { borderRadius }]}
@@ -122,14 +191,14 @@ export const LiquidGlassButton: React.FC<LiquidGlassButtonProps> = ({
       style={[styles.container, { borderRadius }, style]}
     >
       <BlurView
-        intensity={20}
-        tint={theme.background === '#FFFFFF' ? 'light' : 'dark'}
+        intensity={blurIntensity}
+        tint={blurTint}
         style={[
           styles.glassContainer,
           {
             borderRadius,
-            borderColor: 'transparent',
-            borderWidth: 0,
+            borderColor,
+            borderWidth,
             opacity: disabled ? 0.5 : 1,
             overflow: 'hidden',
           },
@@ -141,9 +210,9 @@ export const LiquidGlassButton: React.FC<LiquidGlassButtonProps> = ({
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        {/* Верхний блик - более мягкий согласно гайдлайну */}
+        {/* Верхний блик */}
         <LinearGradient
-          colors={['rgba(255, 255, 255, 0.3)', 'rgba(255, 255, 255, 0)']}
+          colors={[highlightColor, highlightColorEnd]}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 0.4 }}
           style={[styles.highlight, { borderRadius }]}
@@ -169,12 +238,7 @@ export const LiquidGlassButton: React.FC<LiquidGlassButtonProps> = ({
 const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
-    // Внешняя тень по гайдлайну для поднятия элемента
-    shadowColor: '#000',
-    shadowOffset: { width: 3, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 8,
+    // Тени применяются динамически в зависимости от темы
   },
   glassContainer: {
     overflow: 'hidden',
