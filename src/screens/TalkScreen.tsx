@@ -17,6 +17,7 @@ import { COACH_PHRASES, speakText } from '../services/mockVoice';
 import { microphoneService } from '../services/microphone';
 import { voiceRecognitionService } from '../services/voiceRecognition';
 import { llmService } from '../services/llmService';
+import { voiceEmulator } from '../services/voiceEmulator';
 import { RootStackParamList } from '../../App';
 import { ScreenContainer, Container, Stack, Section } from '../components/layout';
 import { Text } from '../components/typography';
@@ -242,6 +243,7 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
         console.log('Stopping recording and recognition');
         microphoneService.stopRecording();
         voiceRecognitionService.stopListening();
+        voiceEmulator.stopEmulation();
         setIsRecording(false);
         setRecognizedText('');
         setIsMuted(true);
@@ -271,20 +273,48 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
             (result) => {
               console.log('Recognition result:', result);
               setRecognizedText(result.text);
-              // Не отправляем сразу при финальном результате - ждем паузу
+              // При финальном результате сразу отправляем (через короткую паузу)
+              if (result.isFinal && result.text.trim()) {
+                console.log('Final result received, will send to LLM:', result.text);
+                // Небольшая задержка перед отправкой
+                setTimeout(() => {
+                  handleUserSpeech(result.text);
+                }, 500);
+              }
             },
             (error) => {
               console.error('Voice recognition error:', error);
               setIsRecording(false);
+              // При ошибке пытаемся перезапустить
+              if (error.message.includes('no-speech') || error.message.includes('aborted')) {
+                console.log('Recognition error, will retry...');
+                setTimeout(() => {
+                  if (!isMuted && hasMicPermission) {
+                    voiceRecognitionService.startListening(
+                      (result) => {
+                        setRecognizedText(result.text);
+                        if (result.isFinal && result.text.trim()) {
+                          setTimeout(() => {
+                            handleUserSpeech(result.text);
+                          }, 500);
+                        }
+                      },
+                      (err) => console.error('Retry error:', err),
+                      undefined,
+                      2000
+                    );
+                  }
+                }, 1000);
+              }
             },
-            // Callback при паузе (тишине 3 секунды)
+            // Callback при паузе (fallback, если финальный результат не пришел)
             (finalText: string) => {
-              console.log('Silence detected, final text:', finalText);
+              console.log('Silence callback triggered, final text:', finalText);
               if (finalText.trim()) {
                 handleUserSpeech(finalText);
               }
             },
-            3000 // 3 секунды тишины
+            2000 // 2 секунды тишины (fallback)
           );
           
           if (recognitionStarted) {
