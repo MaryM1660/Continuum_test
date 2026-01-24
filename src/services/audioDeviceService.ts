@@ -16,7 +16,19 @@ class AudioDeviceService {
    * Получить список доступных микрофонов
    */
   async getAvailableDevices(): Promise<AudioInputDevice[]> {
-    if (Platform.OS === 'web') {
+    // ВАЖНО: Проверяем не только Platform.OS, но и наличие Web API
+    // На мобильном веб-браузере Platform.OS === 'web', но нужно убедиться
+    const isWeb = Platform.OS === 'web' || (typeof window !== 'undefined' && typeof navigator !== 'undefined' && navigator.mediaDevices);
+    
+    console.log('🔍 [AUDIO] Platform detection:', {
+      PlatformOS: Platform.OS,
+      hasWindow: typeof window !== 'undefined',
+      hasNavigator: typeof navigator !== 'undefined',
+      hasMediaDevices: typeof navigator !== 'undefined' && !!navigator.mediaDevices,
+      isWeb: isWeb
+    });
+    
+    if (isWeb) {
       return this.getWebDevices();
     } else {
       return this.getMobileDevices();
@@ -41,15 +53,41 @@ class AudioDeviceService {
       
       try {
         console.log('🎤 [AUDIO] Requesting permission to enumerate devices...');
-        tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log('🎤 [AUDIO] User agent:', typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown');
+        
+        // Запрашиваем разрешение с более явными constraints
+        tempStream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          }
+        });
         permissionGranted = true;
         console.log('✅ [AUDIO] Permission granted, can enumerate devices with labels');
+        console.log('✅ [AUDIO] Stream tracks:', tempStream.getTracks().map(t => ({
+          kind: t.kind,
+          label: t.label,
+          enabled: t.enabled,
+          readyState: t.readyState
+        })));
         
-        // ВАЖНО: В мобильном Chrome нужно подождать немного перед enumerateDevices
+        // ВАЖНО: В мобильном Chrome нужно подождать больше перед enumerateDevices
         // чтобы система успела обновить список устройств
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Увеличиваем задержку для мобильных устройств
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+          typeof navigator !== 'undefined' ? navigator.userAgent : ''
+        );
+        const delay = isMobile ? 300 : 100;
+        console.log(`⏳ [AUDIO] Waiting ${delay}ms before enumerating devices (mobile: ${isMobile})...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       } catch (error: any) {
         console.warn('⚠️ [AUDIO] Permission not granted or error:', error.message);
+        console.warn('⚠️ [AUDIO] Error details:', {
+          name: error.name,
+          message: error.message,
+          constraint: error.constraint
+        });
         // Продолжаем, но labels могут быть пустыми
       }
 
@@ -124,10 +162,18 @@ class AudioDeviceService {
       // Если нет устройств, возвращаем дефолтное
       if (audioInputs.length === 0) {
         console.warn('⚠️ [AUDIO] No audio input devices found');
+        console.warn('⚠️ [AUDIO] This might happen if:');
+        console.warn('   - Permission was not granted');
+        console.warn('   - No audio input devices are connected');
+        console.warn('   - Browser does not support enumerateDevices');
         return [{ id: 'default', label: 'Default Microphone', type: 'default', isDefault: true }];
       }
 
-      console.log(`✅ [AUDIO] Found ${audioInputs.length} audio input devices:`, audioInputs.map(d => d.label));
+      console.log(`✅ [AUDIO] Found ${audioInputs.length} audio input devices:`);
+      audioInputs.forEach((device, index) => {
+        console.log(`   ${index + 1}. ${device.label} (${device.type}) - ID: ${device.deviceId.substring(0, 20)}...`);
+      });
+      
       return audioInputs;
     } catch (error) {
       console.error('❌ [AUDIO] Error getting web devices:', error);
