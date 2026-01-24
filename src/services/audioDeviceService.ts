@@ -33,45 +33,76 @@ class AudioDeviceService {
         return [{ id: 'default', label: 'Default Microphone', type: 'default', isDefault: true }];
       }
 
-      // Сначала нужно получить разрешение, чтобы получить labels устройств
+      // ВАЖНО: Сначала нужно получить разрешение, чтобы получить labels устройств
+      // Без разрешения labels будут пустыми
+      let permissionGranted = false;
+      let tempStream: MediaStream | null = null;
+      
       try {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch (error) {
-        console.warn('Permission not granted, device labels may be empty');
+        tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        permissionGranted = true;
+        console.log('✅ [AUDIO] Permission granted, can enumerate devices with labels');
+      } catch (error: any) {
+        console.warn('⚠️ [AUDIO] Permission not granted or error:', error.message);
+        // Продолжаем, но labels могут быть пустыми
       }
 
+      // Получаем список устройств
       const devices = await navigator.mediaDevices.enumerateDevices();
+      
+      // Останавливаем временный поток, если был создан
+      if (tempStream) {
+        tempStream.getTracks().forEach(track => track.stop());
+        tempStream = null;
+      }
+
       const audioInputs = devices
         .filter(device => device.kind === 'audioinput')
         .map((device, index) => {
           let type: AudioInputDevice['type'] = 'builtin';
-          const label = device.label || `Microphone ${index + 1}`;
+          let label = device.label;
           
-          // Определяем тип устройства по label
-          if (label.toLowerCase().includes('bluetooth') || label.toLowerCase().includes('bt')) {
-            type = 'bluetooth';
-          } else if (label.toLowerCase().includes('headset') || label.toLowerCase().includes('headphone')) {
-            type = 'wired';
-          } else if (label.toLowerCase().includes('usb')) {
-            type = 'usb';
+          // Если label пустой (нет разрешения или устройство не перечислено)
+          if (!label || label.trim() === '') {
+            // Пытаемся определить по deviceId
+            if (device.deviceId === 'default' || device.deviceId.includes('default')) {
+              label = 'Default Microphone';
+              type = 'default';
+            } else {
+              label = `Microphone ${index + 1}`;
+            }
+          } else {
+            // Определяем тип устройства по label
+            const labelLower = label.toLowerCase();
+            if (labelLower.includes('bluetooth') || labelLower.includes('bt') || labelLower.includes('wireless')) {
+              type = 'bluetooth';
+            } else if (labelLower.includes('headset') || labelLower.includes('headphone') || labelLower.includes('earphone')) {
+              type = 'wired';
+            } else if (labelLower.includes('usb')) {
+              type = 'usb';
+            } else if (labelLower.includes('default') || labelLower.includes('built-in') || labelLower.includes('internal')) {
+              type = 'default';
+            }
           }
 
           return {
             id: device.deviceId,
             label: label,
             type: type,
-            isDefault: index === 0,
+            isDefault: index === 0 || device.deviceId === 'default',
           };
         });
 
       // Если нет устройств, возвращаем дефолтное
       if (audioInputs.length === 0) {
+        console.warn('⚠️ [AUDIO] No audio input devices found');
         return [{ id: 'default', label: 'Default Microphone', type: 'default', isDefault: true }];
       }
 
+      console.log(`✅ [AUDIO] Found ${audioInputs.length} audio input devices:`, audioInputs.map(d => d.label));
       return audioInputs;
     } catch (error) {
-      console.error('Error getting web devices:', error);
+      console.error('❌ [AUDIO] Error getting web devices:', error);
       return [{ id: 'default', label: 'Default Microphone', type: 'default', isDefault: true }];
     }
   }

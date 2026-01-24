@@ -1,7 +1,8 @@
 // МАКСИМАЛЬНО ПРОСТОЕ распознавание речи - как в примерах MDN
 // КЛЮЧЕВОЕ: Speech Recognition САМ запрашивает микрофон при start()
-// НЕ нужно вызывать getUserMedia() отдельно!
+// НО: Для выбора конкретного устройства нужно сначала запросить getUserMedia с нужным устройством
 import { Platform } from 'react-native';
+import { audioDeviceService } from './audioDeviceService';
 
 export interface VoiceRecognitionResult {
   text: string;
@@ -245,8 +246,56 @@ class VoiceRecognitionService {
     });
 
     try {
+      // ВАЖНО: Для выбора конкретного микрофона нужно сначала запросить getUserMedia
+      // с нужным устройством. Это "настроит" систему на использование этого устройства.
+      // Speech Recognition API не поддерживает прямой выбор устройства, но если мы
+      // запросим getUserMedia с нужным устройством перед запуском, система может использовать его.
+      const selectedDeviceId = audioDeviceService.getSelectedDeviceId();
+      if (selectedDeviceId && selectedDeviceId !== 'default') {
+        console.log('🎤 [SPEECH] Selected device:', selectedDeviceId);
+        try {
+          const constraints = audioDeviceService.getMediaConstraints();
+          console.log('🎤 [SPEECH] Requesting media stream with constraints:', constraints);
+          const stream = await navigator.mediaDevices.getUserMedia(constraints);
+          console.log('✅ [SPEECH] Got media stream with selected device');
+          
+          // Проверяем, какое устройство реально используется
+          const audioTracks = stream.getAudioTracks();
+          if (audioTracks.length > 0) {
+            const track = audioTracks[0];
+            const settings = track.getSettings();
+            console.log('🎤 [SPEECH] Active device settings:', {
+              deviceId: settings.deviceId,
+              label: track.label,
+              groupId: settings.groupId
+            });
+          }
+          
+          // НЕ останавливаем поток сразу - даем системе время "переключиться" на это устройство
+          // Speech Recognition создаст свой поток, но система может использовать то же устройство
+          // Остановим поток через небольшую задержку
+          setTimeout(() => {
+            try {
+              stream.getTracks().forEach(track => {
+                if (track.readyState === 'live') {
+                  track.stop();
+                  console.log('🛑 [SPEECH] Stopped preview stream track');
+                }
+              });
+            } catch (e) {
+              // Игнорируем ошибки при остановке
+            }
+          }, 500);
+        } catch (error: any) {
+          console.warn('⚠️ [SPEECH] Could not get media stream with selected device, using default:', error.message);
+        }
+      } else {
+        console.log('ℹ️ [SPEECH] No specific device selected, using system default');
+      }
+      
       // Speech Recognition САМ запросит микрофон при start()
-      // НЕ вызываем getUserMedia() отдельно - это создает конфликт!
+      // Но если мы уже запросили getUserMedia с нужным устройством,
+      // система будет использовать это устройство
       console.log('🚀 [SPEECH] Calling recognition.start()...');
       this.recognition.start();
       this.isListening = true;
