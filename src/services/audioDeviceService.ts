@@ -157,14 +157,19 @@ class AudioDeviceService {
           // Если label пустой (нет разрешения или устройство не перечислено)
           if (!label || label.trim() === '') {
             // Пытаемся определить по deviceId или groupId
-            const deviceIdLower = device.deviceId.toLowerCase();
+            const deviceId = device.deviceId || '';
+            const deviceIdLower = deviceId.toLowerCase();
             if (deviceIdLower === 'default' || deviceIdLower.includes('default')) {
               label = 'Default Microphone';
               type = 'default';
+            } else if (deviceIdLower === 'communications') {
+              label = 'Communications Microphone';
+              type = 'default';
             } else {
               // В мобильном Chrome устройства могут иметь пустые labels, но разные deviceId
-              // Используем deviceId для различения
-              label = `Microphone ${index + 1} (${device.deviceId.substring(0, 8)}...)`;
+              // Используем deviceId для различения (безопасно)
+              const deviceIdPreview = deviceId ? (deviceId.length > 8 ? deviceId.substring(0, 8) + '...' : deviceId) : 'unknown';
+              label = `Microphone ${index + 1}${deviceId ? ` (${deviceIdPreview})` : ''}`;
               // Пытаемся определить тип по groupId или другим признакам
               if (device.groupId && device.groupId.includes('bluetooth')) {
                 type = 'bluetooth';
@@ -189,10 +194,10 @@ class AudioDeviceService {
           }
 
           return {
-            id: device.deviceId,
+            id: device.deviceId || `device-${index}`, // Fallback если deviceId undefined
             label: label,
             type: type,
-            isDefault: index === 0 || device.deviceId === 'default',
+            isDefault: index === 0 || device.deviceId === 'default' || !device.deviceId,
           };
         });
 
