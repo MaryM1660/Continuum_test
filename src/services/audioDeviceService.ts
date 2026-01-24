@@ -35,24 +35,35 @@ class AudioDeviceService {
 
       // ВАЖНО: Сначала нужно получить разрешение, чтобы получить labels устройств
       // Без разрешения labels будут пустыми
+      // В мобильном Chrome это особенно важно
       let permissionGranted = false;
       let tempStream: MediaStream | null = null;
       
       try {
+        console.log('🎤 [AUDIO] Requesting permission to enumerate devices...');
         tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         permissionGranted = true;
         console.log('✅ [AUDIO] Permission granted, can enumerate devices with labels');
+        
+        // ВАЖНО: В мобильном Chrome нужно подождать немного перед enumerateDevices
+        // чтобы система успела обновить список устройств
+        await new Promise(resolve => setTimeout(resolve, 100));
       } catch (error: any) {
         console.warn('⚠️ [AUDIO] Permission not granted or error:', error.message);
         // Продолжаем, но labels могут быть пустыми
       }
 
       // Получаем список устройств
+      console.log('🎤 [AUDIO] Enumerating devices...');
       const devices = await navigator.mediaDevices.enumerateDevices();
+      console.log(`🎤 [AUDIO] Total devices found: ${devices.length}`);
       
       // Останавливаем временный поток, если был создан
       if (tempStream) {
-        tempStream.getTracks().forEach(track => track.stop());
+        tempStream.getTracks().forEach(track => {
+          track.stop();
+          console.log('🛑 [AUDIO] Stopped temp stream track');
+        });
         tempStream = null;
       }
 
@@ -62,14 +73,31 @@ class AudioDeviceService {
           let type: AudioInputDevice['type'] = 'builtin';
           let label = device.label;
           
+          console.log(`🎤 [AUDIO] Device ${index}:`, {
+            deviceId: device.deviceId,
+            label: label || '(empty)',
+            groupId: device.groupId
+          });
+          
           // Если label пустой (нет разрешения или устройство не перечислено)
           if (!label || label.trim() === '') {
-            // Пытаемся определить по deviceId
-            if (device.deviceId === 'default' || device.deviceId.includes('default')) {
+            // Пытаемся определить по deviceId или groupId
+            const deviceIdLower = device.deviceId.toLowerCase();
+            if (deviceIdLower === 'default' || deviceIdLower.includes('default')) {
               label = 'Default Microphone';
               type = 'default';
             } else {
-              label = `Microphone ${index + 1}`;
+              // В мобильном Chrome устройства могут иметь пустые labels, но разные deviceId
+              // Используем deviceId для различения
+              label = `Microphone ${index + 1} (${device.deviceId.substring(0, 8)}...)`;
+              // Пытаемся определить тип по groupId или другим признакам
+              if (device.groupId && device.groupId.includes('bluetooth')) {
+                type = 'bluetooth';
+                label = 'Bluetooth Device';
+              } else if (device.groupId && device.groupId.includes('headset')) {
+                type = 'wired';
+                label = 'Wired Headset';
+              }
             }
           } else {
             // Определяем тип устройства по label
