@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet, ViewStyle, SafeAreaView } from 'react-native';
 import { useTheme, useIsAppleHIG, useAppleHIGTheme, useOldTheme } from '../../theme/useTheme';
 import { isAppleHIGTheme } from '../../theme/migration-utils';
+import { AnimatedBackground } from '../AnimatedBackground';
 
 interface ScreenContainerProps {
   children: React.ReactNode;
@@ -36,15 +37,20 @@ export const ScreenContainer: React.FC<ScreenContainerProps> = ({
   }
 
   const content = (
-    <View style={[styles.container, { backgroundColor }, style]}>
-      {children}
+    <View style={[styles.container, style]}>
+      {/* iOS-style живой фон */}
+      <AnimatedBackground />
+      {/* Контент поверх фона */}
+      <View style={styles.content}>
+        {children}
+      </View>
     </View>
   );
 
   if (safeArea) {
     return (
       <SafeAreaView 
-        style={[styles.safeArea, { backgroundColor }]}
+        style={styles.safeArea}
         edges={edges}
       >
         {content}
@@ -61,6 +67,12 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    position: 'relative',
+  },
+  content: {
+    flex: 1,
+    position: 'relative',
+    zIndex: 1,
   },
 });
 

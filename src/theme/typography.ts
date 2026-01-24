@@ -74,19 +74,19 @@ export const typography = {
   button: {
     fontSize: 17,      // Body для кнопок (Apple HIG)
     lineHeight: 22,    // Apple стандарт
-    fontWeight: '600' as const, // Semibold (Apple стандарт для кнопок)
+    fontWeight: '400' as const, // Regular (нежирный)
     letterSpacing: -0.41, // Apple стандарт
   },
   buttonLarge: {
     fontSize: 17,      // Body (Apple HIG - кнопки используют Body размер)
     lineHeight: 22,    // Apple стандарт
-    fontWeight: '600' as const, // Semibold
+    fontWeight: '400' as const, // Regular (нежирный)
     letterSpacing: -0.41, // Apple стандарт
   },
   buttonSmall: {
     fontSize: 15,      // Subhead для маленьких кнопок
     lineHeight: 20,    // Apple стандарт
-    fontWeight: '600' as const,
+    fontWeight: '400' as const, // Regular (нежирный)
     letterSpacing: -0.24, // Apple стандарт
   },
   

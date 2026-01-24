@@ -24,25 +24,72 @@ export const liquidGlass = {
     full: 'blur(18px) saturate(180%)',
   },
   
-  // Background Opacity
+  // Background Opacity - Apple HIG стандарт
+  // Liquid Glass адаптируется к фону: на светлом фоне светлее, на темном - темнее
   backgroundOpacity: {
-    primary: 0.15,      // Основной вариант
-    primaryAlt: 0.2,    // Альтернативный основной
-    secondary: 0.12,    // Вторичный вариант
-    secondaryAlt: 0.1,  // Альтернативный вторичный
+    // Light theme (светлая тема) - белые полупрозрачные цвета
+    light: {
+      primary: 0.15,      // Основной вариант для светлой темы
+      primaryAlt: 0.2,    // Альтернативный основной
+      secondary: 0.12,    // Вторичный вариант
+      secondaryAlt: 0.1,  // Альтернативный вторичный
+    },
+    // Dark theme (темная тема) - темные полупрозрачные цвета
+    dark: {
+      primary: 0.15,      // Основной вариант для темной темы
+      primaryAlt: 0.2,    // Альтернативный основной
+      secondary: 0.12,    // Вторичный вариант
+      secondaryAlt: 0.1,  // Альтернативный вторичный
+    },
   },
   
-  // Border
+  // Background Colors - адаптивные цвета для обеих тем
+  // Согласно HIG: "Liquid Glass адаптируется между светлым и темным видом в зависимости от контента"
+  backgroundColors: {
+    // Light theme - белые полупрозрачные
+    light: {
+      primary: 'rgba(255, 255, 255, 0.15)',
+      primaryAlt: 'rgba(255, 255, 255, 0.2)',
+      secondary: 'rgba(255, 255, 255, 0.12)',
+      secondaryAlt: 'rgba(255, 255, 255, 0.1)',
+    },
+    // Dark theme - темные полупрозрачные (черные с прозрачностью)
+    dark: {
+      primary: 'rgba(0, 0, 0, 0.15)',
+      primaryAlt: 'rgba(0, 0, 0, 0.2)',
+      secondary: 'rgba(0, 0, 0, 0.12)',
+      secondaryAlt: 'rgba(0, 0, 0, 0.1)',
+    },
+  },
+  
+  // Border - адаптивные границы для обеих тем
   border: {
-    color: 'rgba(255, 255, 255, 0.2)',
-    width: 1.5,
+    // Light theme - темная граница на светлом фоне
+    light: {
+      color: 'rgba(0, 0, 0, 0.1)',
+      width: 1.5,
+    },
+    // Dark theme - светлая граница на темном фоне
+    dark: {
+      color: 'rgba(255, 255, 255, 0.2)',
+      width: 1.5,
+    },
   },
   
-  // Highlight (верхний блик)
+  // Highlight (верхний блик) - адаптивные блики для обеих тем
   highlight: {
-    color: 'rgba(255, 255, 255, 0.3)',
-    colorEnd: 'rgba(255, 255, 255, 0)',
-    height: '40%',      // Высота блика от верха элемента
+    // Light theme - светлый блик
+    light: {
+      color: 'rgba(255, 255, 255, 0.3)',
+      colorEnd: 'rgba(255, 255, 255, 0)',
+      height: '40%',
+    },
+    // Dark theme - темный блик (или отсутствие блика)
+    dark: {
+      color: 'rgba(255, 255, 255, 0.15)',
+      colorEnd: 'rgba(255, 255, 255, 0)',
+      height: '40%',
+    },
   },
   
   // Blur Intensity (для native BlurView)

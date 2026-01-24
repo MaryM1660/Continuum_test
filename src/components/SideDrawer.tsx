@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   Modal,
   ScrollView,
-  Switch,
   Platform,
   Animated,
 } from 'react-native';
@@ -158,13 +157,15 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
           style={[
             styles.drawer,
             {
-              backgroundColor: surfaceElevated,
+              backgroundColor: Platform.OS === 'web' 
+                ? (isDark ? 'rgba(28, 28, 30, 0.85)' : 'rgba(242, 242, 247, 0.85)')
+                : surfaceElevated,
               transform: [{ translateX: slideAnim }],
             },
           ]}
         >
           {Platform.OS === 'web' ? (
-            <View style={styles.drawerContent}>
+            <View style={[styles.drawerContent, { backgroundColor: isDark ? 'rgba(28, 28, 30, 0.85)' : 'rgba(242, 242, 247, 0.85)' }]}>
               <View style={styles.header}>
                 <Text variant="title2">Menu</Text>
                 <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -177,10 +178,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
                   <TouchableOpacity
                     key={item.id}
                     onPress={() => handleItemPress(item.id)}
-                    style={[
-                      styles.menuItem,
-                      { borderBottomColor: divider },
-                    ]}
+                    style={styles.menuItem}
                   >
                     <Icon name={item.icon} size={26} style={styles.menuIcon} />
                     <Text variant="body" style={styles.menuLabel}>
@@ -189,28 +187,20 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
                     <Icon name="ArrowRight" size={22} color={textTertiary} style={styles.menuArrow} />
                   </TouchableOpacity>
                 ))}
-                
-                {/* Переключатель темы */}
-                <View style={[styles.themeToggle, { borderTopColor: divider }]}>
-                  <View style={styles.themeToggleContent}>
-                    <Icon name={isDark ? 'Moon' : 'Sun'} size={26} style={styles.themeIcon} />
-                    <Text variant="body">
-                      {isDark ? 'Dark Theme' : 'Light Theme'}
-                    </Text>
-                  </View>
-                  <Switch
-                    value={isDark}
-                    onValueChange={toggleTheme}
-                    trackColor={{ false: border, true: primary }}
-                    thumbColor={surfaceElevated}
-                    ios_backgroundColor={border}
-                  />
-                </View>
               </ScrollView>
+              
+              {/* Переключатель темы - в самом низу */}
+              <TouchableOpacity
+                onPress={toggleTheme}
+                style={styles.themeToggle}
+                activeOpacity={0.7}
+              >
+                <Icon name={isDark ? 'Moon' : 'Sun'} size={26} color={textSecondary} />
+              </TouchableOpacity>
             </View>
           ) : (
             <SafeAreaView 
-              style={styles.drawerContent} 
+              style={[styles.drawerContent, { backgroundColor: Platform.OS === 'web' ? (isDark ? 'rgba(28, 28, 30, 0.85)' : 'rgba(242, 242, 247, 0.85)') : surfaceElevated }]} 
               edges={['top', 'bottom', 'right']}
             >
               <View style={styles.header}>
@@ -225,10 +215,7 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
                   <TouchableOpacity
                     key={item.id}
                     onPress={() => handleItemPress(item.id)}
-                    style={[
-                      styles.menuItem,
-                      { borderBottomColor: divider },
-                    ]}
+                    style={styles.menuItem}
                   >
                     <Icon name={item.icon} size={26} style={styles.menuIcon} />
                     <Text variant="body" style={styles.menuLabel}>
@@ -237,24 +224,16 @@ export const SideDrawer: React.FC<SideDrawerProps> = ({
                     <Icon name="ArrowRight" size={22} color={textTertiary} style={styles.menuArrow} />
                   </TouchableOpacity>
                 ))}
-                
-                {/* Переключатель темы */}
-                <View style={[styles.themeToggle, { borderTopColor: divider }]}>
-                  <View style={styles.themeToggleContent}>
-                    <Icon name={isDark ? 'Moon' : 'Sun'} size={26} style={styles.themeIcon} />
-                    <Text variant="body">
-                      {isDark ? 'Dark Theme' : 'Light Theme'}
-                    </Text>
-                  </View>
-                  <Switch
-                    value={isDark}
-                    onValueChange={toggleTheme}
-                    trackColor={{ false: border, true: primary }}
-                    thumbColor={surfaceElevated}
-                    ios_backgroundColor={border}
-                  />
-                </View>
               </ScrollView>
+              
+              {/* Переключатель темы - в самом низу */}
+              <TouchableOpacity
+                onPress={toggleTheme}
+                style={styles.themeToggle}
+                activeOpacity={0.7}
+              >
+                <Icon name={isDark ? 'Moon' : 'Sun'} size={26} color={textSecondary} />
+              </TouchableOpacity>
             </SafeAreaView>
           )}
         </Animated.View>
@@ -299,8 +278,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24, // spacing.xl (Apple HIG стандарт)
     paddingTop: 24, // spacing.xl
-    paddingBottom: 16, // spacing.base (Apple HIG стандарт для разделителей)
-    borderBottomWidth: StyleSheet.hairlineWidth, // Apple HIG стандарт для разделителей
+    paddingBottom: 16, // spacing.base
   },
   // Типографика применяется через Text компонент
   closeButton: {
@@ -314,7 +292,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24, // spacing.xl (Apple HIG стандарт)
     paddingVertical: 16, // spacing.base (Apple HIG стандарт)
-    borderBottomWidth: StyleSheet.hairlineWidth, // Apple HIG стандарт для разделителей
     minHeight: 48, // Apple HIG минимальный touch target
   },
   menuIcon: {
@@ -327,22 +304,13 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   themeToggle: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 24, // spacing.xl (Apple HIG стандарт)
     paddingVertical: 16, // spacing.base (Apple HIG стандарт)
-    borderTopWidth: StyleSheet.hairlineWidth, // Apple HIG стандарт для разделителей
-    marginTop: 8, // spacing.sm (Apple HIG стандарт)
+    paddingBottom: 24, // spacing.xl для отступа от низа
     minHeight: 48, // Apple HIG минимальный touch target
-  },
-  themeToggleContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  themeIcon: {
-    marginRight: 18, // spacing.lg - spacing.xs
+    width: 48, // Квадратная кнопка
+    alignSelf: 'center', // Центрируем внизу
   },
 });
 

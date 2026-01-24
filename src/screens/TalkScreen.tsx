@@ -683,7 +683,7 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
                   onPress={handleStep1}
                   disabled={isSpeaking}
                   variant="primary"
-                  textVariant="buttonLarge"
+                  textVariant="body"
                 >
                   Hi
                 </LiquidGlassButton>
@@ -703,7 +703,7 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
                   onPress={handleStep2}
                   disabled={isSpeaking}
                   variant="primary"
-                  textVariant="buttonLarge"
+                  textVariant="body"
                 >
                   Ok
                 </LiquidGlassButton>
@@ -723,7 +723,7 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
                   onPress={handleStep3}
                   disabled={isSpeaking}
                   variant="primary"
-                  textVariant="buttonLarge"
+                  textVariant="body"
                 >
                   Turn on the mic
                 </LiquidGlassButton>
