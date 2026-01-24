@@ -213,7 +213,10 @@ class AudioDeviceService {
 
       console.log(`✅ [AUDIO] Found ${audioInputs.length} audio input devices:`);
       audioInputs.forEach((device, index) => {
-        console.log(`   ${index + 1}. ${device.label} (${device.type}) - ID: ${device.deviceId.substring(0, 20)}...`);
+        const deviceIdPreview = device.id && device.id.length > 20 
+          ? device.id.substring(0, 20) + '...' 
+          : device.id || 'unknown';
+        console.log(`   ${index + 1}. ${device.label} (${device.type}) - ID: ${deviceIdPreview}`);
       });
       
       return audioInputs;
