@@ -111,17 +111,35 @@ class AudioDeviceService {
       // ВАЖНО: В мобильном Chrome нужно подождать больше перед enumerateDevices
       // чтобы система успела обновить список устройств
       // Увеличиваем задержку для мобильных устройств
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-        typeof navigator !== 'undefined' ? navigator.userAgent : ''
-      );
-      const delay = isMobile ? 500 : 200; // Увеличена задержка для мобильных
-      console.log(`⏳ [AUDIO] Waiting ${delay}ms before enumerating devices (mobile: ${isMobile})...`);
+      // Также проверяем touch events для более точного определения мобильного устройства
+      const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
+      const hasTouch = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent) || 
+                       (hasTouch && window.innerWidth < 768); // Дополнительная проверка по размеру экрана
+      
+      const delay = isMobile ? 1000 : 200; // Увеличена задержка для мобильных до 1 секунды
+      console.log(`⏳ [AUDIO] Waiting ${delay}ms before enumerating devices (mobile: ${isMobile}, hasTouch: ${hasTouch})...`);
       await new Promise(resolve => setTimeout(resolve, delay));
 
       // Получаем список устройств
+      // ВАЖНО: На мобильных устройствах может потребоваться несколько попыток
       console.log('🎤 [AUDIO] Enumerating devices...');
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      console.log(`🎤 [AUDIO] Total devices found: ${devices.length}`);
+      let devices: MediaDeviceInfo[] = [];
+      let attempts = 0;
+      const maxAttempts = isMobile ? 3 : 1;
+      
+      while (attempts < maxAttempts && devices.length === 0) {
+        devices = await navigator.mediaDevices.enumerateDevices();
+        console.log(`🎤 [AUDIO] Attempt ${attempts + 1}: Total devices found: ${devices.length}`);
+        
+        if (devices.length === 0 && attempts < maxAttempts - 1) {
+          // Ждем еще немного перед следующей попыткой
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+        attempts++;
+      }
+      
+      console.log(`🎤 [AUDIO] Final total devices found: ${devices.length}`);
       
       // ВАЖНО: НЕ останавливаем поток сразу, если он был только что создан
       // На мобильном Chrome это может привести к потере labels
@@ -151,16 +169,29 @@ class AudioDeviceService {
         console.log('📱 [AUDIO] Keeping stream alive on mobile for device enumeration');
       }
 
+      // ВАЖНО: На мобильных устройствах используем label из активного трека потока
+      // если enumerateDevices не вернул labels
+      let trackLabel: string | null = null;
+      if (tempStream && isMobile) {
+        const tracks = tempStream.getAudioTracks();
+        if (tracks.length > 0 && tracks[0].label) {
+          trackLabel = tracks[0].label;
+          console.log('📱 [AUDIO] Using track label from active stream:', trackLabel);
+        }
+      }
+
       const audioInputs = devices
         .filter(device => device.kind === 'audioinput')
         .map((device, index) => {
           let type: AudioInputDevice['type'] = 'builtin';
-          let label = device.label;
+          // Используем label из устройства, или из трека, или пустую строку
+          let label = device.label || trackLabel || '';
           
           console.log(`🎤 [AUDIO] Device ${index}:`, {
             deviceId: device.deviceId,
             label: label || '(empty)',
-            groupId: device.groupId
+            groupId: device.groupId,
+            fromTrack: !!trackLabel && !device.label
           });
           
           // Если label пустой (нет разрешения или устройство не перечислено)
@@ -176,16 +207,22 @@ class AudioDeviceService {
               type = 'default';
             } else {
               // В мобильном Chrome устройства могут иметь пустые labels, но разные deviceId
-              // Используем deviceId для различения (безопасно)
-              const deviceIdPreview = deviceId ? (deviceId.length > 8 ? deviceId.substring(0, 8) + '...' : deviceId) : 'unknown';
-              label = `Microphone ${index + 1}${deviceId ? ` (${deviceIdPreview})` : ''}`;
-              // Пытаемся определить тип по groupId или другим признакам
-              if (device.groupId && device.groupId.includes('bluetooth')) {
-                type = 'bluetooth';
-                label = 'Bluetooth Device';
-              } else if (device.groupId && device.groupId.includes('headset')) {
-                type = 'wired';
-                label = 'Wired Headset';
+              // На мобильных устройствах часто только одно устройство - встроенный микрофон
+              if (isMobile && devices.filter(d => d.kind === 'audioinput').length === 1) {
+                label = 'Built-in Microphone';
+                type = 'builtin';
+              } else {
+                // Используем deviceId для различения (безопасно)
+                const deviceIdPreview = deviceId ? (deviceId.length > 8 ? deviceId.substring(0, 8) + '...' : deviceId) : 'unknown';
+                label = `Microphone ${index + 1}${deviceId ? ` (${deviceIdPreview})` : ''}`;
+                // Пытаемся определить тип по groupId или другим признакам
+                if (device.groupId && device.groupId.includes('bluetooth')) {
+                  type = 'bluetooth';
+                  label = 'Bluetooth Device';
+                } else if (device.groupId && device.groupId.includes('headset')) {
+                  type = 'wired';
+                  label = 'Wired Headset';
+                }
               }
             }
           } else {
