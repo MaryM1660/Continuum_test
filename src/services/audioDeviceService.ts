@@ -51,58 +51,95 @@ class AudioDeviceService {
       let permissionGranted = false;
       let tempStream: MediaStream | null = null;
       
+      // ВАЖНО: Проверяем, есть ли уже активный поток микрофона
+      // Если есть, используем его для получения labels
+      let hasActiveStream = false;
       try {
-        console.log('🎤 [AUDIO] Requesting permission to enumerate devices...');
-        console.log('🎤 [AUDIO] User agent:', typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown');
-        
-        // Запрашиваем разрешение с более явными constraints
-        tempStream = await navigator.mediaDevices.getUserMedia({ 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
+        // Пытаемся получить активные треки из всех возможных источников
+        if (typeof window !== 'undefined' && (window as any).currentMediaStream) {
+          const existingStream = (window as any).currentMediaStream;
+          const tracks = existingStream.getAudioTracks();
+          if (tracks.length > 0 && tracks[0].readyState === 'live') {
+            console.log('✅ [AUDIO] Found existing active media stream, using it');
+            tempStream = existingStream;
+            permissionGranted = true;
+            hasActiveStream = true;
           }
-        });
-        permissionGranted = true;
-        console.log('✅ [AUDIO] Permission granted, can enumerate devices with labels');
-        console.log('✅ [AUDIO] Stream tracks:', tempStream.getTracks().map(t => ({
-          kind: t.kind,
-          label: t.label,
-          enabled: t.enabled,
-          readyState: t.readyState
-        })));
-        
-        // ВАЖНО: В мобильном Chrome нужно подождать больше перед enumerateDevices
-        // чтобы система успела обновить список устройств
-        // Увеличиваем задержку для мобильных устройств
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-          typeof navigator !== 'undefined' ? navigator.userAgent : ''
-        );
-        const delay = isMobile ? 300 : 100;
-        console.log(`⏳ [AUDIO] Waiting ${delay}ms before enumerating devices (mobile: ${isMobile})...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      } catch (error: any) {
-        console.warn('⚠️ [AUDIO] Permission not granted or error:', error.message);
-        console.warn('⚠️ [AUDIO] Error details:', {
-          name: error.name,
-          message: error.message,
-          constraint: error.constraint
-        });
-        // Продолжаем, но labels могут быть пустыми
+        }
+      } catch (e) {
+        // Игнорируем ошибки при проверке существующего потока
       }
+
+      // Если нет активного потока, запрашиваем новый
+      if (!hasActiveStream) {
+        try {
+          console.log('🎤 [AUDIO] Requesting permission to enumerate devices...');
+          console.log('🎤 [AUDIO] User agent:', typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown');
+          
+          // Запрашиваем разрешение с более явными constraints
+          tempStream = await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            }
+          });
+          permissionGranted = true;
+          console.log('✅ [AUDIO] Permission granted, can enumerate devices with labels');
+          console.log('✅ [AUDIO] Stream tracks:', tempStream.getTracks().map(t => ({
+            kind: t.kind,
+            label: t.label,
+            enabled: t.enabled,
+            readyState: t.readyState
+          })));
+          
+          // Сохраняем поток глобально для возможного повторного использования
+          if (typeof window !== 'undefined') {
+            (window as any).currentMediaStream = tempStream;
+          }
+        } catch (error: any) {
+          console.warn('⚠️ [AUDIO] Permission not granted or error:', error.message);
+          console.warn('⚠️ [AUDIO] Error details:', {
+            name: error.name,
+            message: error.message,
+            constraint: error.constraint
+          });
+          // Продолжаем, но labels могут быть пустыми
+        }
+      }
+      
+      // ВАЖНО: В мобильном Chrome нужно подождать больше перед enumerateDevices
+      // чтобы система успела обновить список устройств
+      // Увеличиваем задержку для мобильных устройств
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        typeof navigator !== 'undefined' ? navigator.userAgent : ''
+      );
+      const delay = isMobile ? 500 : 200; // Увеличена задержка для мобильных
+      console.log(`⏳ [AUDIO] Waiting ${delay}ms before enumerating devices (mobile: ${isMobile})...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
 
       // Получаем список устройств
       console.log('🎤 [AUDIO] Enumerating devices...');
       const devices = await navigator.mediaDevices.enumerateDevices();
       console.log(`🎤 [AUDIO] Total devices found: ${devices.length}`);
       
-      // Останавливаем временный поток, если был создан
-      if (tempStream) {
-        tempStream.getTracks().forEach(track => {
-          track.stop();
-          console.log('🛑 [AUDIO] Stopped temp stream track');
-        });
-        tempStream = null;
+      // ВАЖНО: НЕ останавливаем поток сразу, если он был только что создан
+      // На мобильном Chrome это может привести к потере labels
+      // Останавливаем только если это был временный поток (не сохраненный глобально)
+      if (tempStream && !hasActiveStream) {
+        // Даем системе время использовать поток для enumerateDevices
+        setTimeout(() => {
+          try {
+            tempStream?.getTracks().forEach(track => {
+              if (track.readyState === 'live') {
+                track.stop();
+                console.log('🛑 [AUDIO] Stopped temp stream track');
+              }
+            });
+          } catch (e) {
+            // Игнорируем ошибки при остановке
+          }
+        }, 1000); // Останавливаем через 1 секунду после enumerateDevices
       }
 
       const audioInputs = devices
