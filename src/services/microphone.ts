@@ -1,5 +1,6 @@
 // Реальный доступ к микрофону через Web Audio API
 import { Platform } from 'react-native';
+import { audioDeviceService } from './audioDeviceService';
 
 export interface AudioLevelCallback {
   (level: number): void;
@@ -59,13 +60,9 @@ class MicrophoneService {
         this.mediaStream = sharedStream;
       } else {
         console.log('🎤 [MIC] Requesting new media stream');
-        this.mediaStream = await navigator.mediaDevices.getUserMedia({ 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          }
-        });
+        // Используем constraints с выбранным устройством
+        const constraints = audioDeviceService.getMediaConstraints();
+        this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       }
 
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();

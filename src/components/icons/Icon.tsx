@@ -35,6 +35,14 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   'ChatBubbleLeftRight': HeroIconsSolid.ChatBubbleLeftRightIcon,
   'LockClosed': HeroIconsSolid.LockClosedIcon,
   'Document': HeroIconsSolid.DocumentIcon,
+  
+  // Аудио устройства
+  'Signal': HeroIconsSolid.SignalIcon,
+  'CheckCircle': HeroIconsSolid.CheckCircleIcon,
+  // Используем SpeakerWave для наушников, так как Headphones может не быть
+  'Headphones': HeroIconsSolid.SpeakerWaveIcon,
+  // Используем AdjustmentsHorizontal для USB кабеля
+  'Cable': HeroIconsSolid.AdjustmentsHorizontalIcon,
 };
 
 export type IconName = keyof typeof iconMap;
