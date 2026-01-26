@@ -19,3 +19,4 @@ if (fs.existsSync(externalsFile)) {
   console.log('⚠ Файл externals.ts не найден');
 }
 
+

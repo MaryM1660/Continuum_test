@@ -39,3 +39,4 @@ The system automatically scales your icon to produce smaller variants that appea
 - iOS, iPadOS, macOS поддерживают 6 различных appearances (Default, dark, clear light, clear dark, tinted light, tinted dark)
 - tvOS, visionOS, watchOS не поддерживают appearances (N/A)
 
+

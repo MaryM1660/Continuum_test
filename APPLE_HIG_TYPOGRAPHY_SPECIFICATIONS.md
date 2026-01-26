@@ -308,3 +308,4 @@ https://developer.apple.com/design/human-interface-guidelines/typography#Specifi
 2. Извлечь полные таблицы Tracking values для всех размеров
 3. Обновить `src/theme/apple-hig/typography.ts` с этими данными
 
+

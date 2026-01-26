@@ -145,3 +145,4 @@ navigator.permissions.query({ name: 'microphone' }).then(result => {
 3. Проверьте, какие устройства возвращает `enumerateDevices()`
 4. Проверьте, используется ли выбранное устройство в `getUserMedia()`
 
+

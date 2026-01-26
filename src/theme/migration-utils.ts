@@ -212,3 +212,4 @@ export function validateStyle(style: Record<string, any>, theme: AppleHIGTheme):
   return issues;
 }
 
+

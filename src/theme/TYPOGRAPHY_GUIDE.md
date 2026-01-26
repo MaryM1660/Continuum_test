@@ -126,3 +126,4 @@ theme.typographyPatterns.primaryButton // buttonLarge для CTA
 - Рекомендуемый размер: 17px (body)
 - Высокий контраст: соответствует WCAG AA
 
+

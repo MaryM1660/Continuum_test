@@ -86,3 +86,4 @@ grep -r "padding:\s*[0-9]\|margin:\s*[0-9]" src/
 
 **Подробный план:** `APPLE_HIG_MIGRATION_PLAN_DETAILED.md`
 
+

@@ -14,3 +14,4 @@ if ($file) {
     Write-Host "Файл externals.ts не найден" -ForegroundColor Red
 }
 
+
