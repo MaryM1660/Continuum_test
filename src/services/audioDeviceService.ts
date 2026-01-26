@@ -146,9 +146,7 @@ class AudioDeviceService {
       // Останавливаем только если это был временный поток (не сохраненный глобально)
       // НО: на мобильных устройствах лучше не останавливать поток вообще, 
       // чтобы система могла использовать его для перечисления устройств
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-        typeof navigator !== 'undefined' ? navigator.userAgent : ''
-      );
+      // (isMobile уже объявлена выше на строке 117)
       
       if (tempStream && !hasActiveStream && !isMobile) {
         // На десктопе останавливаем поток через задержку
