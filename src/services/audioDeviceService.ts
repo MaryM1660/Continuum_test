@@ -40,7 +40,9 @@ class AudioDeviceService {
    */
   private async getWebDevices(): Promise<AudioInputDevice[]> {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:41',message:'getWebDevices entry',data:{hasMediaDevices:!!(typeof navigator !== 'undefined' && navigator.mediaDevices),hasEnumerateDevices:!!(typeof navigator !== 'undefined' && navigator.mediaDevices?.enumerateDevices),userAgent:typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    const logData1 = {location:'audioDeviceService.ts:41',message:'getWebDevices entry',data:{hasMediaDevices:!!(typeof navigator !== 'undefined' && navigator.mediaDevices),hasEnumerateDevices:!!(typeof navigator !== 'undefined' && navigator.mediaDevices?.enumerateDevices),userAgent:typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'};
+    console.log('🔍 [DEBUG]', logData1);
+    fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData1)}).catch(()=>{});
     // #endregion
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
@@ -104,7 +106,9 @@ class AudioDeviceService {
           });
           permissionGranted = true;
           // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:87',message:'getUserMedia success',data:{hasStream:!!tempStream,tracksCount:tempStream?.getTracks().length,firstTrackLabel:tempStream?.getTracks()[0]?.label,firstTrackState:tempStream?.getTracks()[0]?.readyState},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          const logData2 = {location:'audioDeviceService.ts:87',message:'getUserMedia success',data:{hasStream:!!tempStream,tracksCount:tempStream?.getTracks().length,firstTrackLabel:tempStream?.getTracks()[0]?.label,firstTrackState:tempStream?.getTracks()[0]?.readyState},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'};
+          console.log('🔍 [DEBUG]', logData2);
+          fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData2)}).catch(()=>{});
           // #endregion
           console.log('✅ [AUDIO] Permission granted, can enumerate devices with labels');
           console.log('✅ [AUDIO] Stream tracks:', tempStream.getTracks().map(t => ({
@@ -169,7 +173,9 @@ class AudioDeviceService {
         devices = await navigator.mediaDevices.enumerateDevices();
         const audioInputs = devices.filter(d => d.kind === 'audioinput');
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:133',message:'enumerateDevices result',data:{attempt:attempts+1,totalDevices:devices.length,audioInputs:audioInputs.length,devicesWithLabels:audioInputs.filter(d=>d.label).length,deviceIds:audioInputs.map(d=>d.deviceId?.substring(0,8)||'empty')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        const logData3 = {location:'audioDeviceService.ts:133',message:'enumerateDevices result',data:{attempt:attempts+1,totalDevices:devices.length,audioInputs:audioInputs.length,devicesWithLabels:audioInputs.filter(d=>d.label).length,deviceIds:audioInputs.map(d=>d.deviceId?.substring(0,8)||'empty')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'};
+        console.log('🔍 [DEBUG]', logData3);
+        fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData3)}).catch(()=>{});
         // #endregion
         console.log(`🎤 [AUDIO] Attempt ${attempts + 1}: Total devices found: ${devices.length}`);
         
@@ -292,7 +298,9 @@ class AudioDeviceService {
       // Если нет устройств, возвращаем дефолтное
       if (audioInputs.length === 0) {
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:249',message:'No audio inputs found',data:{permissionGranted,hasStream:!!tempStream,streamState:tempStream?.getTracks()[0]?.readyState,isMobile,isIPhone,userAgent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        const logData4 = {location:'audioDeviceService.ts:249',message:'No audio inputs found',data:{permissionGranted,hasStream:!!tempStream,streamState:tempStream?.getTracks()[0]?.readyState,isMobile,isIPhone,userAgent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'};
+        console.log('🔍 [DEBUG]', logData4);
+        fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(logData4)}).catch(()=>{});
         // #endregion
         console.warn('⚠️ [AUDIO] No audio input devices found');
         console.warn('⚠️ [AUDIO] This might happen if:');
