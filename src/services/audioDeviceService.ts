@@ -39,8 +39,14 @@ class AudioDeviceService {
    * Получить устройства для web платформы
    */
   private async getWebDevices(): Promise<AudioInputDevice[]> {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:41',message:'getWebDevices entry',data:{hasMediaDevices:!!(typeof navigator !== 'undefined' && navigator.mediaDevices),hasEnumerateDevices:!!(typeof navigator !== 'undefined' && navigator.mediaDevices?.enumerateDevices),userAgent:typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:45',message:'MediaDevices API not available',data:{hasMediaDevices:!!navigator.mediaDevices,hasEnumerateDevices:!!navigator.mediaDevices?.enumerateDevices},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         console.warn('MediaDevices API not available');
         return [{ id: 'default', label: 'Default Microphone', type: 'default', isDefault: true }];
       }
@@ -59,15 +65,24 @@ class AudioDeviceService {
         if (typeof window !== 'undefined' && (window as any).currentMediaStream) {
           const existingStream = (window as any).currentMediaStream;
           const tracks = existingStream.getAudioTracks();
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:59',message:'Checking existing stream',data:{hasStream:!!existingStream,tracksCount:tracks.length,firstTrackState:tracks[0]?.readyState},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+          // #endregion
           if (tracks.length > 0 && tracks[0].readyState === 'live') {
             console.log('✅ [AUDIO] Found existing active media stream, using it');
             tempStream = existingStream;
             permissionGranted = true;
             hasActiveStream = true;
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:66',message:'Using existing stream',data:{hasActiveStream:true},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+            // #endregion
           }
         }
       } catch (e) {
         // Игнорируем ошибки при проверке существующего потока
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:70',message:'Error checking existing stream',data:{error:String(e)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
       }
 
       // Если нет активного потока, запрашиваем новый
@@ -75,6 +90,9 @@ class AudioDeviceService {
         try {
           console.log('🎤 [AUDIO] Requesting permission to enumerate devices...');
           console.log('🎤 [AUDIO] User agent:', typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown');
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:75',message:'Before getUserMedia request',data:{userAgent:typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',hasActiveStream:false},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
           
           // Запрашиваем разрешение с более явными constraints
           tempStream = await navigator.mediaDevices.getUserMedia({ 
@@ -85,6 +103,9 @@ class AudioDeviceService {
             }
           });
           permissionGranted = true;
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:87',message:'getUserMedia success',data:{hasStream:!!tempStream,tracksCount:tempStream?.getTracks().length,firstTrackLabel:tempStream?.getTracks()[0]?.label,firstTrackState:tempStream?.getTracks()[0]?.readyState},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
           console.log('✅ [AUDIO] Permission granted, can enumerate devices with labels');
           console.log('✅ [AUDIO] Stream tracks:', tempStream.getTracks().map(t => ({
             kind: t.kind,
@@ -98,6 +119,9 @@ class AudioDeviceService {
             (window as any).currentMediaStream = tempStream;
           }
         } catch (error: any) {
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:100',message:'getUserMedia error',data:{errorName:error?.name,errorMessage:error?.message,constraint:error?.constraint,userAgent:typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+          // #endregion
           console.warn('⚠️ [AUDIO] Permission not granted or error:', error.message);
           console.warn('⚠️ [AUDIO] Error details:', {
             name: error.name,
@@ -116,10 +140,20 @@ class AudioDeviceService {
       const hasTouch = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent) || 
                        (hasTouch && window.innerWidth < 768); // Дополнительная проверка по размеру экрана
+      const isIPhone = /iPhone|iPad|iPod/i.test(userAgent);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:118',message:'Device detection',data:{userAgent,isMobile,isIPhone,hasTouch,innerWidth:typeof window !== 'undefined' ? window.innerWidth : 0,permissionGranted},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       
       const delay = isMobile ? 1000 : 200; // Увеличена задержка для мобильных до 1 секунды
       console.log(`⏳ [AUDIO] Waiting ${delay}ms before enumerating devices (mobile: ${isMobile}, hasTouch: ${hasTouch})...`);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:121',message:'Before delay',data:{delay,isMobile,isIPhone},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       await new Promise(resolve => setTimeout(resolve, delay));
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:123',message:'After delay',data:{delay,isMobile,isIPhone},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
 
       // Получаем список устройств
       // ВАЖНО: На мобильных устройствах может потребоваться несколько попыток
@@ -127,9 +161,16 @@ class AudioDeviceService {
       let devices: MediaDeviceInfo[] = [];
       let attempts = 0;
       const maxAttempts = isMobile ? 3 : 1;
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:127',message:'Before enumerateDevices',data:{maxAttempts,isMobile,isIPhone,hasStream:!!tempStream,streamTracksCount:tempStream?.getTracks().length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       
       while (attempts < maxAttempts && devices.length === 0) {
         devices = await navigator.mediaDevices.enumerateDevices();
+        const audioInputs = devices.filter(d => d.kind === 'audioinput');
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:133',message:'enumerateDevices result',data:{attempt:attempts+1,totalDevices:devices.length,audioInputs:audioInputs.length,devicesWithLabels:audioInputs.filter(d=>d.label).length,deviceIds:audioInputs.map(d=>d.deviceId?.substring(0,8)||'empty')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         console.log(`🎤 [AUDIO] Attempt ${attempts + 1}: Total devices found: ${devices.length}`);
         
         if (devices.length === 0 && attempts < maxAttempts - 1) {
@@ -140,6 +181,9 @@ class AudioDeviceService {
       }
       
       console.log(`🎤 [AUDIO] Final total devices found: ${devices.length}`);
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:142',message:'Final enumerateDevices result',data:{totalDevices:devices.length,audioInputs:devices.filter(d=>d.kind==='audioinput').length,hasStream:!!tempStream,streamAlive:tempStream?.getTracks().some(t=>t.readyState==='live')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       
       // ВАЖНО: НЕ останавливаем поток сразу, если он был только что создан
       // На мобильном Chrome это может привести к потере labels
@@ -247,6 +291,9 @@ class AudioDeviceService {
 
       // Если нет устройств, возвращаем дефолтное
       if (audioInputs.length === 0) {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'audioDeviceService.ts:249',message:'No audio inputs found',data:{permissionGranted,hasStream:!!tempStream,streamState:tempStream?.getTracks()[0]?.readyState,isMobile,isIPhone,userAgent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
         console.warn('⚠️ [AUDIO] No audio input devices found');
         console.warn('⚠️ [AUDIO] This might happen if:');
         console.warn('   - Permission was not granted');

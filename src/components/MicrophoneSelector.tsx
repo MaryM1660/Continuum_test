@@ -70,9 +70,15 @@ export const MicrophoneSelector: React.FC<MicrophoneSelectorProps> = ({
   }, []);
 
   const loadDevices = async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MicrophoneSelector.tsx:72',message:'loadDevices called',data:{modalVisible},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+    // #endregion
     setLoading(true);
     try {
       const availableDevices = await audioDeviceService.getAvailableDevices();
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MicrophoneSelector.tsx:76',message:'Devices loaded',data:{devicesCount:availableDevices.length,deviceLabels:availableDevices.map(d=>d.label)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       setDevices(availableDevices);
       
       // Если нет выбранного устройства, выбираем дефолтное
@@ -81,6 +87,9 @@ export const MicrophoneSelector: React.FC<MicrophoneSelectorProps> = ({
         setSelectedDeviceId(defaultDevice.id);
       }
     } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/16af869d-47e5-4169-b17b-511784d1b4ba',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MicrophoneSelector.tsx:84',message:'Error loading devices',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+      // #endregion
       console.error('Error loading devices:', error);
     } finally {
       setLoading(false);
