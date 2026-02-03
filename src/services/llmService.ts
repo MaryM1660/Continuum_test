@@ -118,24 +118,45 @@ ${this.customSystemPrompt}`.trim();
       // Формируем промпт для модели
       const prompt = this.formatPrompt();
 
-      // Вызываем серверный прокси, чтобы избежать CORS и не светить ключ
-      const response = await fetch('/api/llm', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt,
-        }),
-      });
+      // Пытаемся использовать серверный прокси (работает в production на Vercel)
+      // Если 404 - значит локальная разработка, используем прямой вызов к HF
+      let assistantText = '';
+      try {
+        const response = await fetch('/api/llm', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            prompt,
+          }),
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`LLM proxy error: ${response.status} - ${errorText}`);
+        if (response.ok) {
+          const data = await response.json();
+          assistantText = (data.text || '').toString().trim() || JSON.stringify(data);
+        } else if (response.status === 404) {
+          // Локальная разработка - используем прямой вызов к HF
+          console.log('⚠️ [LLM] API proxy not available (local dev), using direct HF call');
+          assistantText = await this.callHuggingFaceDirect(prompt);
+        } else {
+          const errorText = await response.text();
+          throw new Error(`LLM proxy error: ${response.status} - ${errorText}`);
+        }
+      } catch (fetchError: any) {
+        // Если fetch к /api/llm упал (404, network error), пробуем прямой вызов
+        if (fetchError.message?.includes('404') || fetchError.message?.includes('Failed to fetch')) {
+          console.log('⚠️ [LLM] API proxy unavailable, trying direct HF call');
+          try {
+            assistantText = await this.callHuggingFaceDirect(prompt);
+          } catch (directError: any) {
+            // Если прямой вызов тоже упал (CORS), используем fallback
+            throw directError;
+          }
+        } else {
+          throw fetchError;
+        }
       }
-
-      const data = await response.json();
-      const assistantText = (data.text || '').toString().trim() || JSON.stringify(data);
 
       // Добавляем ответ ассистента в историю
       this.conversationHistory.push({ role: 'assistant', content: assistantText });
@@ -157,6 +178,62 @@ ${this.customSystemPrompt}`.trim();
         error: error.message,
       };
     }
+  }
+
+  /**
+   * Прямой вызов к Hugging Face (для локальной разработки)
+   * В production этот метод не используется - все идет через /api/llm
+   */
+  private async callHuggingFaceDirect(prompt: string): Promise<string> {
+    const response = await fetch(`${HUGGINGFACE_API_URL}/${DEFAULT_MODEL}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
+      },
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: {
+          max_new_tokens: 150,
+          temperature: 0.7,
+          top_p: 0.9,
+          return_full_text: false,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      // Если модель загружается, ждем и повторяем
+      if (response.status === 503) {
+        const retryAfter = response.headers.get('Retry-After');
+        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 10000;
+        console.log(`Model loading, waiting ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        return this.callHuggingFaceDirect(prompt); // Рекурсивный вызов
+      }
+
+      const errorText = await response.text();
+      throw new Error(`LLM API error: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    
+    // Обрабатываем ответ (формат зависит от модели)
+    let assistantText = '';
+    if (Array.isArray(data) && data[0]?.generated_text) {
+      assistantText = data[0].generated_text.trim();
+    } else if (data.generated_text) {
+      assistantText = data.generated_text.trim();
+    } else if (typeof data === 'string') {
+      assistantText = data.trim();
+    } else {
+      assistantText = JSON.stringify(data);
+    }
+
+    // Убираем промпт из ответа, если он там есть
+    assistantText = assistantText.replace(prompt, '').trim();
+
+    return assistantText;
   }
 
   private formatPrompt(): string {
