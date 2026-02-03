@@ -482,6 +482,13 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
 
   const handleToggleMute = async () => {
     console.log('🔘 [BUTTON] handleToggleMute called, current isMuted:', isMuted);
+    if (isProcessingLLM || isSpeaking) {
+      console.log('🔘 [BUTTON] Toggle mute ignored during processing/speaking', {
+        isProcessingLLM,
+        isSpeaking,
+      });
+      return;
+    }
     const newMutedState = !isMuted;
     console.log('🔘 [BUTTON] newMutedState (will be):', newMutedState);
     
@@ -578,6 +585,8 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
     }
 
     setIsProcessingLLM(true);
+    // Сохраняем последний сказанный текст для отображения/отладки
+    setDisplayText(text.trim());
     setRecognizedText(''); // Очищаем, но не показываем
 
     try {
@@ -586,18 +595,21 @@ export const TalkScreen: React.FC<TalkScreenProps> = ({ onOpenDrawer }) => {
       console.log('LLM response:', response);
 
       if (response.text) {
-        // Устанавливаем текст для озвучки (но не для отображения, если не нужно)
+        // Устанавливаем текст для отображения и озвучки
+        setDisplayText(response.text);
         setSpeechText(response.text);
         // Озвучиваем ответ с текущей громкостью
         await speak(response.text);
       } else {
         const errorMsg = "I'm sorry, I didn't get a response. Could you try again?";
+        setDisplayText(errorMsg);
         setSpeechText(errorMsg);
         await speak(errorMsg);
       }
     } catch (error) {
       console.error('Error processing speech:', error);
       const errorMsg = "I'm sorry, I didn't catch that. Could you repeat?";
+      setDisplayText(errorMsg);
       setSpeechText(errorMsg);
       await speak(errorMsg);
     } finally {

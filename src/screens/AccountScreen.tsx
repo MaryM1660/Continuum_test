@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  TextInput,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
@@ -14,6 +15,7 @@ import { RootStackParamList } from '../../App';
 import { ScreenContainer, Container, Stack, Section } from '../components/layout';
 import { Text } from '../components/typography';
 import { Icon } from '../components/icons';
+import { llmService } from '../services/llmService';
 
 type AccountNavigationProp = StackNavigationProp<RootStackParamList, 'Account'>;
 
@@ -46,6 +48,9 @@ export const AccountScreen: React.FC = () => {
     textTertiary = oldTheme.textTertiary;
     background = oldTheme.background;
   }
+
+  const [promptDraft, setPromptDraft] = useState<string>(llmService.getCustomPrompt() ?? '');
+  const [isSavingPrompt, setIsSavingPrompt] = useState(false);
 
   const accountItems = [
     { id: 'profile', label: 'Profile', icon: 'User' as const },
@@ -96,6 +101,22 @@ export const AccountScreen: React.FC = () => {
     </Section>
   );
 
+  const handleSavePrompt = async () => {
+    if (isSavingPrompt) return;
+    setIsSavingPrompt(true);
+    try {
+      llmService.setSystemPrompt(promptDraft);
+      llmService.resetConversation();
+    } finally {
+      setIsSavingPrompt(false);
+    }
+  };
+
+  const handleResetPrompt = () => {
+    setPromptDraft('');
+    llmService.setSystemPrompt('');
+  };
+
   return (
     <ScreenContainer>
       <StatusBar style={background === '#FFFFFF' ? 'dark' : 'light'} />
@@ -120,6 +141,60 @@ export const AccountScreen: React.FC = () => {
             {renderSection('Account', accountItems)}
             {renderSection('Support', supportItems)}
             {renderSection('Legal', legalItems)}
+            <Section>
+              <Stack gap={spacing.base}>
+                <Text variant="overline" color="secondary">
+                  Coach prompt
+                </Text>
+                <Text variant="body" color="secondary">
+                  Optional instructions that will guide how the AI coach talks to you. You can describe tone, language, or focus areas.
+                </Text>
+                <View
+                  style={[
+                    styles.promptBox,
+                    {
+                      backgroundColor: surface,
+                      borderColor: divider,
+                    },
+                  ]}
+                >
+                  <TextInput
+                    multiline
+                    placeholder="For example: &quot;Speak Russian, be very direct and challenge my assumptions about career moves.&quot;"
+                    placeholderTextColor={textTertiary}
+                    value={promptDraft}
+                    onChangeText={setPromptDraft}
+                    style={styles.promptInput}
+                  />
+                </View>
+                <View style={styles.promptButtonsRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.promptButton,
+                      { borderColor: divider },
+                    ]}
+                    onPress={handleResetPrompt}
+                    disabled={isSavingPrompt}
+                  >
+                    <Text variant="body" color="secondary">
+                      Reset to default
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.promptButton,
+                      { borderColor: primary },
+                    ]}
+                    onPress={handleSavePrompt}
+                    disabled={isSavingPrompt}
+                  >
+                    <Text variant="body">
+                      {isSavingPrompt ? 'Saving…' : 'Save prompt'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </Stack>
+            </Section>
           </Stack>
         </Container>
       </ScrollView>
@@ -151,6 +226,27 @@ const styles = StyleSheet.create({
   },
   itemArrow: {
     opacity: 0.6,
+  },
+  promptBox: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 120,
+  },
+  promptInput: {
+    minHeight: 96,
+    textAlignVertical: 'top',
+  },
+  promptButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    columnGap: 12,
+  },
+  promptButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
   },
 });
 

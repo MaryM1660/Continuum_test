@@ -19,8 +19,8 @@ export interface LLMResponse {
   error?: string;
 }
 
-// Системный промпт для карьерного коуча
-const SYSTEM_PROMPT = `You are a friendly and supportive AI career coach for tech professionals (software engineers, DevOps, data scientists, product managers). 
+// Базовый системный промпт для карьерного коуча
+const BASE_SYSTEM_PROMPT = `You are a friendly and supportive AI career coach for tech professionals (software engineers, DevOps, data scientists, product managers). 
 
 Your role:
 - Help users think through their career direction and strategy
@@ -40,6 +40,8 @@ Start conversations naturally and ask open-ended questions.`;
 class LLMService {
   private apiKey: string | null = null;
   private conversationHistory: LLMMessage[] = [];
+  private baseSystemPrompt: string = BASE_SYSTEM_PROMPT;
+  private customSystemPrompt: string | null = null;
 
   constructor() {
     // API ключ устанавливается через переменную окружения
@@ -61,10 +63,51 @@ class LLMService {
     this.apiKey = key;
   }
 
-  resetConversation(): void {
+  /**
+   * Установить пользовательский системный промпт.
+   * Пустая строка сбрасывает к базовому промпту.
+   */
+  setSystemPrompt(customPrompt?: string): void {
+    const trimmed = customPrompt?.trim();
+    this.customSystemPrompt = trimmed && trimmed.length > 0 ? trimmed : null;
+    // После изменения промпта сразу сбрасываем историю
+    this.resetConversation();
+  }
+
+  /**
+   * Получить текущий кастомный промпт (без базового).
+   */
+  getCustomPrompt(): string | null {
+    return this.customSystemPrompt;
+  }
+
+  /**
+   * Сбросить историю разговора, опционально временно переопределив промпт.
+   */
+  resetConversation(customPrompt?: string): void {
+    if (typeof customPrompt === 'string') {
+      const trimmed = customPrompt.trim();
+      this.customSystemPrompt = trimmed && trimmed.length > 0 ? trimmed : null;
+    }
+
     this.conversationHistory = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: this.getEffectiveSystemPrompt() },
     ];
+  }
+
+  /**
+   * Получить итоговый системный промпт:
+   * базовый + (опционально) пользовательский.
+   */
+  private getEffectiveSystemPrompt(): string {
+    if (!this.customSystemPrompt) {
+      return this.baseSystemPrompt;
+    }
+
+    return `${this.baseSystemPrompt}
+
+Additional instructions for the assistant (user provided):
+${this.customSystemPrompt}`.trim();
   }
 
   async chat(userMessage: string): Promise<LLMResponse> {
@@ -75,54 +118,24 @@ class LLMService {
       // Формируем промпт для модели
       const prompt = this.formatPrompt();
 
-      // Вызываем API
-      const response = await fetch(`${HUGGINGFACE_API_URL}/${DEFAULT_MODEL}`, {
+      // Вызываем серверный прокси, чтобы избежать CORS и не светить ключ
+      const response = await fetch('/api/llm', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(this.apiKey && { 'Authorization': `Bearer ${this.apiKey}` }),
         },
         body: JSON.stringify({
-          inputs: prompt,
-          parameters: {
-            max_new_tokens: 150, // Ограничиваем длину ответа
-            temperature: 0.7, // Креативность
-            top_p: 0.9,
-            return_full_text: false,
-          },
+          prompt,
         }),
       });
 
       if (!response.ok) {
-        // Если модель загружается, ждем и повторяем
-        if (response.status === 503) {
-          const retryAfter = response.headers.get('Retry-After');
-          const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 10000;
-          console.log(`Model loading, waiting ${waitTime}ms...`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-          return this.chat(userMessage); // Рекурсивный вызов
-        }
-
         const errorText = await response.text();
-        throw new Error(`LLM API error: ${response.status} - ${errorText}`);
+        throw new Error(`LLM proxy error: ${response.status} - ${errorText}`);
       }
 
       const data = await response.json();
-      
-      // Обрабатываем ответ (формат зависит от модели)
-      let assistantText = '';
-      if (Array.isArray(data) && data[0]?.generated_text) {
-        assistantText = data[0].generated_text.trim();
-      } else if (data.generated_text) {
-        assistantText = data.generated_text.trim();
-      } else if (typeof data === 'string') {
-        assistantText = data.trim();
-      } else {
-        assistantText = JSON.stringify(data);
-      }
-
-      // Убираем промпт из ответа, если он там есть
-      assistantText = assistantText.replace(prompt, '').trim();
+      const assistantText = (data.text || '').toString().trim() || JSON.stringify(data);
 
       // Добавляем ответ ассистента в историю
       this.conversationHistory.push({ role: 'assistant', content: assistantText });
@@ -148,7 +161,7 @@ class LLMService {
 
   private formatPrompt(): string {
     // Форматируем историю разговора для модели
-    let prompt = SYSTEM_PROMPT + '\n\n';
+    let prompt = this.getEffectiveSystemPrompt() + '\n\n';
     
     // Добавляем последние несколько сообщений (чтобы не перегружать)
     const recentMessages = this.conversationHistory.slice(-6); // Последние 6 сообщений
