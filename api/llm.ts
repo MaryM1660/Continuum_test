@@ -1,7 +1,7 @@
 // Universal LLM proxy for Vercel serverless environment
 // Provider-agnostic: supports Hugging Face by default, OpenRouter optionally.
 
-const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models';
+const HUGGINGFACE_API_URL = 'https://router.huggingface.co';
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 type Provider = 'huggingface' | 'openrouter' | 'openai';
@@ -43,7 +43,8 @@ export default async function handler(req: any, res: any) {
       const model = process.env.LLM_MODEL || 'mistralai/Mistral-7B-Instruct-v0.2';
       const apiKey = process.env.HUGGINGFACE_API_KEY;
 
-      const hfResponse = await fetch(`${HUGGINGFACE_API_URL}/${model}`, {
+      // New Hugging Face Router API format
+      const hfResponse = await fetch(`${HUGGINGFACE_API_URL}/models/${model}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

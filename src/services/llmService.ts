@@ -1,7 +1,7 @@
 // Интеграция с бесплатным LLM API (Hugging Face Inference API)
 // Используем модель Mistral-7B или Llama-2 для бесплатного использования
 
-const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models';
+const HUGGINGFACE_API_URL = 'https://router.huggingface.co';
 const DEFAULT_MODEL = 'mistralai/Mistral-7B-Instruct-v0.2'; // Бесплатная модель
 
 // Альтернативные бесплатные модели:
@@ -185,7 +185,8 @@ ${this.customSystemPrompt}`.trim();
    * В production этот метод не используется - все идет через /api/llm
    */
   private async callHuggingFaceDirect(prompt: string): Promise<string> {
-    const response = await fetch(`${HUGGINGFACE_API_URL}/${DEFAULT_MODEL}`, {
+    // New Hugging Face Router API format
+    const response = await fetch(`${HUGGINGFACE_API_URL}/models/${DEFAULT_MODEL}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
